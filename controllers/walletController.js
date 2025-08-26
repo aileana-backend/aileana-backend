@@ -1,8 +1,5 @@
 const Wallet = require("../models/Wallet");
-const {
-  createWallet,
-  getWalletBalance,
-} = require("../middleware/utils/onepipe");
+const { createWallet, getWalletBalance } = require("../utils/onepipe");
 
 const PROVIDER_CODE = process.env.ONEPIPE_PROVIDER_CODE || "FidelityVirtual";
 const PROVIDER_NAME = process.env.ONEPIPE_PROVIDER_NAME || "FidelityVirtual";

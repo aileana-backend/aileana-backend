@@ -1,9 +1,10 @@
 const { body, validationResult } = require("express-validator");
 
 const signupRules = [
-  body("name").isLength({ min: 2 }),
+  body("first_name").isLength({ min: 2 }),
+  body("last_name").isLength({ min: 2 }),
   body("email").isEmail(),
-  body("password").isLength({ min: 6 }),
+  // body("password").isLength({ min: 6 }),
 ];
 
 const loginRules = [body("email").isEmail(), body("password").exists()];

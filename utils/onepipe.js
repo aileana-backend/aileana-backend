@@ -1,6 +1,6 @@
 const axios = require("axios");
 const crypto = require("crypto");
-const Wallet = require("../../models/Wallet");
+const Wallet = require("../models/Wallet");
 
 const ONEPIPE_API_KEY = process.env.ONEPIPE_API_KEY || "";
 const ONEPIPE_SECRET_KEY = process.env.ONEPIPE_API_SECRET || "";
@@ -76,7 +76,7 @@ async function createWallet(user) {
   const requestRef = uniqueRef("req");
   const transactionRef = uniqueRef("txn");
 
-  const secureString = `${user.customer_ref};${user.provider_code}`; // e.g. "user_12345;FidelityVirtual"
+  const secureString = `${user.customer_ref};${user.provider_code}`;
   const encryptedSecure = encryptTripleDES(ONEPIPE_SECRET_KEY, secureString);
 
   const payload = {
@@ -142,7 +142,11 @@ async function createWallet(user) {
  */
 async function getWalletBalance(wallet) {
   if (isMock) {
-    return { status: "Successful", balance: 5000, currency: "NGN" };
+    return {
+      status: "Successful",
+      balance: wallet?.balance,
+      currency: wallet?.currency,
+    };
   }
 
   const requestRef = uniqueRef("req");
