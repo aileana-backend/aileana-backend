@@ -23,8 +23,8 @@ const createUserWallet = async (req, res) => {
     const walletUserData = {
       _id: user._id,
       customer_ref: `user_${user._id}`,
-      firstname: user?.firstname || "",
-      surname: user?.surname || "",
+      first_name: user?.first_name || "",
+      last_name: user?.last_name || "",
       email: user?.email || "",
       mobile_no: user?.phone || "",
       provider_code: PROVIDER_CODE,
