@@ -19,9 +19,15 @@ const auth = async (req, res, next) => {
 };
 
 const verifySocketToken = async (socket) => {
-  const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+  const token = socket.handshake?.auth?.token || socket.handshake?.query?.token;
   if (!token) throw new Error("No token");
-  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (err) {
+    throw new Error("Invalid or expired token");
+  }
+
   socket.userId = decoded.id;
   const user = await User.findById(decoded.id);
   if (!user) throw new Error("Invalid token");

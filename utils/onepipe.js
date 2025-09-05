@@ -62,11 +62,12 @@ async function onepipeTransact(payload) {
 async function createWallet(user) {
   //if its mock and without the onepipe, it creates only for my database during mock
   if (isMock) {
-    const externalId = `mock_wallet_${user._id.toString().slice(-6)}`;
+    console.log("rom the waller instide the mock", user.userId);
+    // const externalId = `mock_wallet_${user._id.toString().slice(-6)}`;
     const wallet = new Wallet({
-      user: user._id,
-      externalId,
-      balance: 0,
+      userId: user.userId,
+
+      //balance: 0,
       currency: "NGN",
     });
     await wallet.save();
@@ -125,7 +126,7 @@ async function createWallet(user) {
     const accountNumber = response.data.provider_response?.account_number;
     const currency = response.data.provider_response?.currency || "NGN";
     const wallet = new Wallet({
-      user: user._id,
+      userId: user.userId,
       externalId: accountNumber,
       balance: 0,
       currency,

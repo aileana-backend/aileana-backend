@@ -1,16 +1,18 @@
 const mongoose = require("mongoose");
 
-const WalletSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
-    unique: true,
+const walletSchema = new mongoose.Schema(
+  {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      unique: true,
+    },
+    nairaBalance: { type: Number, default: 0 },
+    credixBalance: { type: Number, default: 0 },
+    tradebitBalance: { type: Number, default: 0 },
   },
-  externalId: { type: String },
-  balance: { type: Number, default: 0 },
-  currency: { type: String, default: "NGN" },
-  createdAt: { type: Date, default: Date.now },
-});
+  { timestamps: true }
+);
 
-module.exports = mongoose.model("Wallet", WalletSchema);
+module.exports = mongoose.model("Wallet", walletSchema);

@@ -4,20 +4,54 @@ const UserSchema = new mongoose.Schema({
   first_name: { type: String, required: false },
   middle_name: { type: String },
   last_name: { type: String },
-  //name: { type: String },
+  username: { type: String },
   email: { type: String, required: true, unique: true, index: true },
-  // phone: { type: String },
-  // dob: { type: Date },
-  // gender: { type: String, enum: ["Male", "Female", "Other"] },
-  // title: { type: String },
-  // address_line_1: { type: String },
-  // address_line_2: { type: String },
-  // city: { type: String },
-  // state: { type: String },
-  // country: { type: String },
+
+  dob: { type: Date },
+  gender: {
+    type: String,
+    enum: ["Male", "Female", "Other", "Prefer not to say"],
+  },
+
   password: { type: String, default: "" },
-  // avatar: { type: String, default: "" },
-  // createdAt: { type: Date, default: Date.now },
+
+  biometricPreference: {
+    type: String,
+    enum: ["None", "FaceID", "Fingerprint"],
+    default: "None",
+  },
+  termsAccepted: { type: Boolean, required: true },
+  verified: { type: Boolean, required: false },
+  createdAt: { type: Date, default: Date.now },
+  otp: { type: String },
+  otpType: {
+    type: String,
+    enum: ["", "change", "signup", "reset"],
+    default: "",
+  },
+  otpExpires: { type: Date },
+  pendingPassword: { type: String },
+});
+
+UserSchema.pre("save", async function (next) {
+  if (this.isNew && !this.username) {
+    // e.g., take first part of email + random suffix
+    let base = this.email.split("@")[0];
+    let username = base.toLowerCase();
+
+    // Ensure uniqueness
+    let exists = await this.constructor.findOne({ username });
+    let counter = 1;
+
+    while (exists) {
+      username = `${base}${counter}`;
+      exists = await this.constructor.findOne({ username });
+      counter++;
+    }
+
+    this.username = username;
+  }
+  next();
 });
 
 module.exports = mongoose.model("User", UserSchema);

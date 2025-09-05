@@ -6,8 +6,8 @@ const getChatHistory = async (req, res) => {
     const otherUserId = req.params.userId;
     const messages = await Message.find({
       $or: [
-        { from: userId, to: otherUserId },
-        { from: otherUserId, to: userId },
+        { sender: userId, receiver: otherUserId },
+        { sender: otherUserId, receiver: userId },
       ],
     }).sort({ timestamp: 1 });
     res.json({ messages });
