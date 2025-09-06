@@ -1,10 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const { auth, verifySocketToken } = require("../middleware/auth");
-const { getChatHistory } = require("../controllers/messageController");
+const {
+  getChatHistory,
+  getUsersChatHistoryForAi,
+} = require("../controllers/messageController");
 const Message = require("../models/Message");
 // fetch history with a specific user
 router.get("/messages/:userId", auth, getChatHistory);
+router.get("/messages/ai/:user1/:user2", auth, getUsersChatHistoryForAi);
 router.post("/messages", auth, async (req, res) => {
   try {
     const { receiver, content } = req.body;
