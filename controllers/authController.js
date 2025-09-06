@@ -136,7 +136,12 @@ const signup = async (req, res) => {
       expiresIn: process.env.JWT_EXPIRES_IN || "7d",
     });
 
-    await sendEmail(user.email, subject, htmlContent);
+    try {
+      await sendEmail(user.email, subject, htmlContent);
+    } catch (emailError) {
+      console.error("Email sending failed:", emailError);
+    }
+
     res.status(201).json({
       token,
       newUser,
@@ -238,7 +243,11 @@ const forgotPassword = async (req, res) => {
       <p>Link expires in 1 hour.</p>
     `;
 
-    await sendEmail(user.email, subject, htmlContent);
+    try {
+      await sendEmail(user.email, subject, htmlContent);
+    } catch (emailError) {
+      console.error("Email sending failed:", emailError);
+    }
 
     res.json({
       message: "Password reset link has been sent to your email.",
@@ -322,8 +331,11 @@ const requestChangePassword = async (req, res) => {
       <p>If you didn’t request this, you can ignore this email.</p>
       <p>Link expires in 1 hour.</p>
     `;
-
-    await sendEmail(user.email, subject, htmlContent);
+    try {
+      await sendEmail(user.email, subject, htmlContent);
+    } catch (emailError) {
+      console.error("Email sending failed:", emailError);
+    }
 
     res.json({
       message: "OTP sent. Please verify to complete password change.",
@@ -493,7 +505,11 @@ const resendAccountOtp = async (req, res) => {
       <p>Code expires in 10 minutes.</p>
     `;
 
-    await sendEmail(user.email, subject, htmlContent);
+    try {
+      await sendEmail(user.email, subject, htmlContent);
+    } catch (emailError) {
+      console.error("Email sending failed:", emailError);
+    }
 
     res.json({ message: "New OTP sent to your email." });
   } catch (err) {
