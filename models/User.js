@@ -39,6 +39,7 @@ const UserSchema = new mongoose.Schema({
   },
   otpExpires: { type: Date },
   pendingPassword: { type: String },
+  smartReplyEnabled: { type: Boolean, default: false },
 });
 
 // UserSchema.pre("save", async function (next) {
