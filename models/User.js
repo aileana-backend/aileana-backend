@@ -4,7 +4,15 @@ const UserSchema = new mongoose.Schema({
   first_name: { type: String, required: false },
   middle_name: { type: String },
   last_name: { type: String },
-  username: { type: String },
+  username: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+    minlength: 3,
+    maxlength: 20,
+  },
+
   email: { type: String, required: true, unique: true, index: true },
 
   dob: { type: Date },
@@ -33,25 +41,24 @@ const UserSchema = new mongoose.Schema({
   pendingPassword: { type: String },
 });
 
-UserSchema.pre("save", async function (next) {
-  if (this.isNew && !this.username) {
-    // e.g., take first part of email + random suffix
-    let base = this.email.split("@")[0];
-    let username = base.toLowerCase();
+// UserSchema.pre("save", async function (next) {
+//   if (this.isNew && !this.username) {
 
-    // Ensure uniqueness
-    let exists = await this.constructor.findOne({ username });
-    let counter = 1;
+//     let base = this.email.split("@")[0];
+//     let username = base.toLowerCase();
 
-    while (exists) {
-      username = `${base}${counter}`;
-      exists = await this.constructor.findOne({ username });
-      counter++;
-    }
+//     let exists = await this.constructor.findOne({ username });
+//     let counter = 1;
 
-    this.username = username;
-  }
-  next();
-});
+//     while (exists) {
+//       username = `${base}${counter}`;
+//       exists = await this.constructor.findOne({ username });
+//       counter++;
+//     }
+
+//     this.username = username;
+//   }
+//   next();
+// });
 
 module.exports = mongoose.model("User", UserSchema);

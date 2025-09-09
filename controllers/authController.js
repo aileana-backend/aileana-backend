@@ -15,6 +15,7 @@ const PROVIDER_NAME = process.env.ONEPIPE_PROVIDER_NAME || "FidelityVirtual";
 const signup = async (req, res) => {
   try {
     const {
+      username,
       first_name,
       middle_name,
       last_name,
@@ -25,11 +26,23 @@ const signup = async (req, res) => {
       biometricPreference,
       termsAccepted,
     } = req.body;
+
     if (!termsAccepted) {
       return res
         .status(400)
         .json({ error: "You must accept the Terms & Conditions to register." });
     }
+
+    if (!username || username.length < 3) {
+      return res
+        .status(400)
+        .json({ error: "Username must be at least 3 characters long." });
+    }
+    const existingUsername = await User.findOne({ username });
+    if (existingUsername) {
+      return res.status(400).json({ msg: "Username already taken." });
+    }
+
     const existing = await User.findOne({ email });
     if (existing) {
       return res.status(400).json({ msg: "Email already registered" });
@@ -51,10 +64,9 @@ const signup = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Create user
-
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const user = new User({
+      username,
       first_name,
       middle_name,
       last_name,
@@ -69,7 +81,6 @@ const signup = async (req, res) => {
       otpExpires: Date.now() + 10 * 60 * 1000,
     });
 
-    //await user.save();
     const newUser = await user.save();
 
     const subject = "Account verification OTP";
@@ -94,7 +105,6 @@ const signup = async (req, res) => {
       //  provider_name: PROVIDER_NAME,
       //  account_type: "static",
     };
-    console.log(walletUserData, "wallet user data");
     // // Create wallet
     // const walletResponse = await createWallet(walletUserData);
     const wallet = new Wallet({
@@ -518,6 +528,70 @@ const resendAccountOtp = async (req, res) => {
   }
 };
 
+const suggestUsernames = async (req, res) => {
+  try {
+    const { desiredUsername, email, first_name, last_name } = req.body;
+
+    if (!desiredUsername) {
+      return res.status(400).json({ error: "desiredUsername is required." });
+    }
+
+    const base = desiredUsername.replace(/[^a-zA-Z0-9]/g, "");
+    if (base.length < 3 || base.length > 20) {
+      return res.json({
+        available: false,
+        suggestions: [],
+      });
+    }
+
+    const isTaken = await User.findOne({ username: base });
+
+    const suggestions = [];
+
+    if (!isTaken) {
+      suggestions.push(base);
+    }
+
+    let candidates = [base];
+
+    if (email) {
+      const emailBase = email.split("@")[0].replace(/[^a-zA-Z0-9]/g, "");
+      if (emailBase.length >= 3 && emailBase.length <= 20) {
+        candidates.push(emailBase);
+      }
+    }
+
+    if (first_name) {
+      candidates.push(first_name.replace(/[^a-zA-Z0-9]/g, ""));
+    }
+    if (last_name) {
+      candidates.push(last_name.replace(/[^a-zA-Z0-9]/g, ""));
+    }
+
+    while (suggestions.length < 5) {
+      const candidate =
+        candidates[Math.floor(Math.random() * candidates.length)];
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      const suggestion = `${candidate}${randomSuffix}`;
+
+      if (suggestion.length <= 20) {
+        const exists = await User.findOne({ username: suggestion });
+        if (!exists && !suggestions.includes(suggestion)) {
+          suggestions.push(suggestion);
+        }
+      }
+    }
+
+    res.json({
+      available: !isTaken,
+      suggestions,
+    });
+  } catch (err) {
+    console.error("Username suggestion error:", err);
+    res.status(500).json({ msg: "Server error" });
+  }
+};
+
 module.exports = {
   signup,
   login,
@@ -529,4 +603,5 @@ module.exports = {
   verifyChangePassword,
   verifyAccountOtp,
   resendAccountOtp,
+  suggestUsernames,
 };

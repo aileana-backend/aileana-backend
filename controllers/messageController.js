@@ -1,5 +1,4 @@
 const Message = require("../models/Message");
-
 const getChatHistory = async (req, res) => {
   try {
     const userId = req.user._id;

@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-
+const { encrypt, decrypt } = require("../utils/crypto");
 const MessageSchema = new mongoose.Schema(
   {
     sender: {
@@ -15,13 +15,17 @@ const MessageSchema = new mongoose.Schema(
     content: {
       type: String,
       required: true,
+      set: (msg) => encrypt(msg),
+      get: (msg) => decrypt(msg),
     },
     read: {
       type: Boolean,
       default: false,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
+
+  { toJSON: { getters: true }, toObject: { getters: true } }
 );
 
 module.exports = mongoose.model("Message", MessageSchema);
