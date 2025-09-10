@@ -16,12 +16,26 @@ passport.use(
         let user = await User.findOne({ email });
 
         if (!user) {
+          let baseUsername =
+            profile.displayName?.replace(/\s+/g, "").toLowerCase() ||
+            profile.emails[0].value.split("@")[0];
+
+          let username = baseUsername;
+          let exists = await User.findOne({ username });
+          while (exists) {
+            username = baseUsername + Math.floor(Math.random() * 10000);
+            exists = await User.findOne({ username });
+          }
+
           user = await User.create({
             first_name: profile.name.givenName,
             last_name: profile.name.familyName,
             email,
+            username,
             termsAccepted: true,
             biometricPreference: "None",
+            verified: true,
+
             password: "",
           });
         }
