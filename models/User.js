@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const UserSchema = new mongoose.Schema({
   first_name: { type: String, required: false },
   middle_name: { type: String },
@@ -35,3 +36,4 @@ const UserSchema = new mongoose.Schema({
   otpExpires: { type: Date },
   pendingPassword: { type: String },
 });
+module.exports = mongoose.model("User", UserSchema);
