@@ -7,7 +7,7 @@ const {
   toggleSmartReply,
 } = require("../controllers/messageController");
 const Message = require("../models/Message");
-router.post("/messages/toggle-smart-reply", auth, toggleSmartReply);
+
 // fetch history with a specific user
 router.get("/messages/:userId", auth, getChatHistory);
 router.get("/messages/ai/:user1/:user2", auth, getUsersChatHistoryForAi);

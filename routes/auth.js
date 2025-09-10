@@ -18,6 +18,7 @@ const {
   resendAccountOtp,
   biometricLogin,
   suggestUsernames,
+  toggleSmartReply,
 } = require("../controllers/authController");
 const {
   signupRules,
@@ -37,6 +38,7 @@ router.post("/change-password-verify", auth, verifyChangePassword);
 router.post("/verify-otp", verifyAccountOtp);
 router.post("/resend-otp", resendAccountOtp);
 router.post("/suggest-usernames", suggestUsernames);
+router.post("/messages/toggle-smart-reply", auth, toggleSmartReply);
 router.get(
   "/google",
   passport.authenticate("google", { scope: ["profile", "email"] })
