@@ -1,4 +1,5 @@
 const passport = require("passport");
+const jwt = require("jsonwebtoken");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const User = require("../models/User");
 
@@ -39,18 +40,14 @@ passport.use(
             password: "",
           });
         }
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+          expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+        });
 
-        return done(null, user);
+        return done(null, { user, token });
       } catch (err) {
         return done(err, null);
       }
     }
   )
 );
-
-// Required for persistent login sessions (optional)
-passport.serializeUser((user, done) => done(null, user.id));
-passport.deserializeUser(async (id, done) => {
-  const user = await User.findById(id);
-  done(null, user);
-});
