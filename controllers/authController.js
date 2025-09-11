@@ -366,11 +366,9 @@ const resetForgotPassword = async (req, res) => {
       !user.resetVerifiedExpires ||
       Date.now() > user.resetVerifiedExpires
     ) {
-      return res
-        .status(403)
-        .json({
-          error: "OTP verification required before resetting password.",
-        });
+      return res.status(403).json({
+        error: "OTP verification required before resetting password.",
+      });
     }
 
     const passwordRegex =
@@ -741,6 +739,26 @@ const toggleSmartReply = async (req, res) => {
     res.status(500).json({ msg: "Server error" });
   }
 };
+const checkEmailAvailability = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required." });
+    }
+
+    const existingUser = await User.findOne({ email });
+
+    if (existingUser) {
+      return res.json({ available: false, message: "Email is already taken." });
+    }
+
+    return res.json({ available: true, message: "Email is available." });
+  } catch (error) {
+    console.error("Check email availability error:", error);
+    res.status(500).json({ error: "Server error. Try again later." });
+  }
+};
 
 module.exports = {
   signup,
@@ -749,6 +767,7 @@ module.exports = {
   resetPassword,
   verifyForgetPasswordOtp,
   resetForgotPassword,
+  checkEmailAvailability,
   changePassword,
   biometricLogin,
   requestChangePassword,
