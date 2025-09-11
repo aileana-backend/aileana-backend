@@ -19,6 +19,8 @@ const {
   biometricLogin,
   suggestUsernames,
   toggleSmartReply,
+  verifyForgetPasswordOtp,
+  resetForgotPassword,
 } = require("../controllers/authController");
 const {
   signupRules,
@@ -30,8 +32,11 @@ const { auth } = require("../middleware/auth");
 router.post("/signup", signupRules, validate, signup);
 router.post("/login", loginRules, validate, loginLimiter, login);
 router.post("/bio-login", biometricLogin);
-router.post("/forgot-password", forgotPassword);
-router.post("/reset-password", resetPassword);
+router.post("/request-forgot-password", forgotPassword);
+router.post("/verify-forgot-password-otp", verifyForgetPasswordOtp);
+router.post("/reset-forgot-password", resetForgotPassword);
+// router.post("/forgot-password", forgotPassword);
+// router.post("/reset-password", resetPassword);
 router.post("/change-password", auth, changePassword);
 router.post("/change-password-request", auth, requestChangePassword);
 router.post("/change-password-verify", auth, verifyChangePassword);

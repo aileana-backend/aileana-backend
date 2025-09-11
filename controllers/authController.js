@@ -227,6 +227,53 @@ const login = async (req, res) => {
     res.status(500).json({ msg: "Server error", err: err.message });
   }
 };
+// const forgotPassword = async (req, res) => {
+//   try {
+//     const { email } = req.body;
+//     const user = await User.findOne({ email });
+//     if (!user) {
+//       return res.status(404).json({ error: "No account with that email." });
+//     }
+
+//     // Generate reset token
+//     const token = crypto.randomBytes(32).toString("hex");
+
+//     user.otp = token;
+//     user.otpExpires = Date.now() + 3600000; // 1 hour validity
+//     user.otpType = "reset";
+//     await user.save();
+
+//     const resetLink = `http://frontend_needs_to_give_me_a_link.com/reset-password/${token}`;
+//     const subject = "Password Reset Request";
+//     const htmlContent = `
+//       <p>Hello ${user.first_name || "User"},</p>
+//       <p>You requested a password reset. Click below to reset:</p>
+//       <a href="${resetLink}" target="_blank">${resetLink}</a>
+//       <p>If you didn’t request this, you can ignore this email.</p>
+//       <p>Link expires in 1 hour.</p>
+//     `;
+
+//     try {
+//       await sendEmail(user.email, subject, htmlContent);
+//     } catch (emailError) {
+//       console.error("Email sending failed:", emailError);
+//     }
+
+//     res.json({
+//       message: "Password reset link has been sent to your email.",
+//       token,
+//     }); // token returned for testing
+//   } catch (error) {
+//     console.error("Forgot password error:", error);
+//     await logActivity({
+//       userId: null,
+//       action: "forget_password_error",
+//       description: `Unexpected server error during forget password: ${err.message}`,
+//       req,
+//     });
+//     res.status(500).json({ error: "Server error. Try again later." });
+//   }
+// };
 const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -235,22 +282,20 @@ const forgotPassword = async (req, res) => {
       return res.status(404).json({ error: "No account with that email." });
     }
 
-    // Generate reset token
-    const token = crypto.randomBytes(32).toString("hex");
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    user.otp = token;
-    user.otpExpires = Date.now() + 3600000; // 1 hour validity
+    user.otp = otp;
+    user.otpExpires = Date.now() + 10 * 60 * 1000;
     user.otpType = "reset";
     await user.save();
 
-    const resetLink = `http://frontend_needs_to_give_me_a_link.com/reset-password/${token}`;
-    const subject = "Password Reset Request";
+    const subject = "Password Reset OTP";
     const htmlContent = `
       <p>Hello ${user.first_name || "User"},</p>
-      <p>You requested a password reset. Click below to reset:</p>
-      <a href="${resetLink}" target="_blank">${resetLink}</a>
+      <p>Your password reset OTP is:</p>
+      <h2>${otp}</h2>
+      <p>This OTP will expire in 10 minutes.</p>
       <p>If you didn’t request this, you can ignore this email.</p>
-      <p>Link expires in 1 hour.</p>
     `;
 
     try {
@@ -260,17 +305,78 @@ const forgotPassword = async (req, res) => {
     }
 
     res.json({
-      message: "Password reset link has been sent to your email.",
-      token,
-    }); // token returned for testing
+      message: "Password reset OTP has been sent to your email.",
+    });
   } catch (error) {
     console.error("Forgot password error:", error);
     await logActivity({
       userId: null,
-      action: "forget_password_error",
-      description: `Unexpected server error during forget password: ${err.message}`,
+      action: "forgot_password_error",
+      description: `Unexpected server error during forgot password: ${error.message}`,
       req,
     });
+    res.status(500).json({ error: "Server error. Try again later." });
+  }
+};
+const verifyForgetPasswordOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    if (!user.otp || !user.otpExpires || Date.now() > user.otpExpires) {
+      return res.status(400).json({ error: "OTP expired or not requested." });
+    }
+
+    if (user.otp !== otp || user.otpType !== "reset") {
+      return res.status(400).json({ error: "Invalid OTP." });
+    }
+
+    // Commit pending password
+
+    user.otp = null;
+    user.otpType = "";
+    user.otpExpires = null;
+    await user.save();
+
+    await user.save();
+
+    res.json({ message: "Password reset successfully." });
+  } catch (error) {
+    console.error("Verify forgot password error:", error);
+    res.status(500).json({ error: "Server error. Try again later." });
+  }
+};
+
+const resetForgotPassword = async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        error:
+          "Password must be at least 8 characters long, include uppercase, lowercase, number, and special character.",
+      });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+
+    await user.save();
+
+    res.json({ message: "Password reset successfully." });
+  } catch (error) {
+    console.error("Reset forgot password error:", error);
     res.status(500).json({ error: "Server error. Try again later." });
   }
 };
@@ -625,6 +731,8 @@ module.exports = {
   login,
   forgotPassword,
   resetPassword,
+  verifyForgetPasswordOtp,
+  resetForgotPassword,
   changePassword,
   biometricLogin,
   requestChangePassword,
