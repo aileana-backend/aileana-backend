@@ -41,11 +41,17 @@ router.post("/suggest-usernames", suggestUsernames);
 router.post("/messages/toggle-smart-reply", auth, toggleSmartReply);
 router.get(
   "/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+    session: false,
+  })
 );
 router.get(
   "/auth/google/callback",
-  passport.authenticate("google", { failureRedirect: "/login" }),
+  passport.authenticate("google", {
+    failureRedirect: "/login",
+    session: false,
+  }),
   async (req, res) => {
     try {
       const user = req.user;
