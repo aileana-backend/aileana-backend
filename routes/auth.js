@@ -55,9 +55,10 @@ router.get(
   async (req, res) => {
     try {
       const user = req.user;
-      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-        expiresIn: process.env.JWT_EXPIRES_IN || "7d",
-      });
+      const token = req.token;
+      // const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      //   expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+      // });
       // const token = jwt.sign(
       //   { id: user._id, email: user.email },
       //   process.env.JWT_SECRET,
