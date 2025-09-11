@@ -340,6 +340,8 @@ const verifyForgetPasswordOtp = async (req, res) => {
     user.otp = null;
     user.otpType = "";
     user.otpExpires = null;
+    user.resetVerified = true;
+    user.resetVerifiedExpires = Date.now() + 15 * 60 * 1000;
     await user.save();
 
     await user.save();
@@ -359,6 +361,17 @@ const resetForgotPassword = async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
+    if (
+      !user.resetVerified ||
+      !user.resetVerifiedExpires ||
+      Date.now() > user.resetVerifiedExpires
+    ) {
+      return res
+        .status(403)
+        .json({
+          error: "OTP verification required before resetting password.",
+        });
+    }
 
     const passwordRegex =
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
@@ -371,6 +384,9 @@ const resetForgotPassword = async (req, res) => {
 
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
+
+    user.resetVerified = false;
+    user.resetVerifiedExpires = null;
 
     await user.save();
 

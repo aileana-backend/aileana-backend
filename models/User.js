@@ -34,6 +34,8 @@ const UserSchema = new mongoose.Schema({
     default: "",
   },
   otpExpires: { type: Date },
-  pendingPassword: { type: Boolean, default: false },
+  pendingPassword: { type: String },
+  resetVerified: { type: Boolean, default: false },
+  resetVerifiedExpires: { type: Date },
 });
 module.exports = mongoose.model("User", UserSchema);
