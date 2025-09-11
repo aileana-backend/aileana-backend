@@ -22,6 +22,7 @@ const {
   verifyForgetPasswordOtp,
   resetForgotPassword,
   checkEmailAvailability,
+  checkUsernameAvailability,
 } = require("../controllers/authController");
 const {
   signupRules,
@@ -32,6 +33,8 @@ const { auth } = require("../middleware/auth");
 
 router.post("/signup", signupRules, validate, signup);
 router.post("/login", loginRules, validate, loginLimiter, login);
+
+router.post("/check-username", checkUsernameAvailability);
 router.post("/check-email", checkEmailAvailability);
 router.post("/bio-login", biometricLogin);
 router.post("/request-forgot-password", forgotPassword);

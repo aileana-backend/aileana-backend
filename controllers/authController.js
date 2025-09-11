@@ -759,6 +759,38 @@ const checkEmailAvailability = async (req, res) => {
     res.status(500).json({ error: "Server error. Try again later." });
   }
 };
+const checkUsernameAvailability = async (req, res) => {
+  try {
+    const { username } = req.body;
+
+    if (!username) {
+      return res.status(400).json({ error: "Username is required." });
+    }
+
+    const cleanUsername = username.replace(/[^a-zA-Z0-9]/g, "");
+
+    if (cleanUsername.length < 3 || cleanUsername.length > 20) {
+      return res.status(400).json({
+        available: false,
+        message: "Username must be between 3 and 20 characters.",
+      });
+    }
+
+    const existingUser = await User.findOne({ username: cleanUsername });
+
+    if (existingUser) {
+      return res.json({
+        available: false,
+        message: "Username is already taken.",
+      });
+    }
+
+    return res.json({ available: true, message: "Username is available." });
+  } catch (error) {
+    console.error("Check username availability error:", error);
+    res.status(500).json({ error: "Server error. Try again later." });
+  }
+};
 
 module.exports = {
   signup,
@@ -768,6 +800,7 @@ module.exports = {
   verifyForgetPasswordOtp,
   resetForgotPassword,
   checkEmailAvailability,
+  checkUsernameAvailability,
   changePassword,
   biometricLogin,
   requestChangePassword,
