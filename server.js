@@ -14,6 +14,7 @@ const profileRoutes = require("./routes/profile");
 const walletRoutes = require("./routes/wallet");
 const messagesRoutes = require("./routes/messages");
 const callsRoutes = require("./routes/calls");
+const postRoutes = require("./routes/post");
 const { verifySocketToken } = require("./middleware/auth");
 const Message = require("./models/Message");
 const User = require("./models/User");
@@ -32,6 +33,7 @@ app.use("/api", profileRoutes);
 app.use("/api", walletRoutes);
 //app.use("/api", messagesRoutes);
 app.use("/api", callsRoutes);
+app.use("/api", postRoutes);
 //testing and commiting
 app.get("/", (req, res) => res.send({ status: "Backend runing" }));
 app.set("trust proxy", 1);
