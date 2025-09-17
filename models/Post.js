@@ -9,16 +9,6 @@ const PostSchema = new mongoose.Schema(
       default: "normal",
     },
     content: { type: String, required: true },
-    media: [
-      {
-        url: { type: String, required: true },
-        type: {
-          type: String,
-          enum: ["image", "video"],
-          required: true,
-        },
-      },
-    ],
 
     media: [
       {
