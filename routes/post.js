@@ -1,21 +1,23 @@
 const express = require("express");
 
 const { auth } = require("../middleware/auth");
+const upload = require("../middleware/upload");
 const {
   createPost,
   getPosts,
-  likePost,
-  commentPost,
+  toggleLike,
+  addComment,
+  deleteComment,
 } = require("../controllers/postController");
 
 const router = express.Router();
 
-router.post("/posts", auth, createPost);
+router.post("/posts", auth, upload.array("media", 5), createPost);
 
 router.get("/posts", auth, getPosts);
 
-router.post("/posts/:id/like", auth, likePost);
-
-router.post("/posts/:id/comment", auth, commentPost);
+router.put("/posts/:postId/like", auth, toggleLike);
+router.delete("/:postId/comments/:commentId", auth, deleteComment);
+router.post("/posts/:id/comment", auth, upload.single("audio"), addComment);
 
 module.exports = router;

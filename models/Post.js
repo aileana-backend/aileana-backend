@@ -19,11 +19,35 @@ const PostSchema = new mongoose.Schema(
         },
       },
     ],
+
+    media: [
+      {
+        url: { type: String, required: true },
+        type: {
+          type: String,
+          enum: ["image", "video", "audio"],
+          required: true,
+        },
+        duration: { type: Number },
+      },
+    ],
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     comments: [
       {
         user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
         text: { type: String, required: true },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+
+    comments: [
+      {
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        text: { type: String },
+        audio: {
+          url: { type: String },
+          duration: { type: Number },
+        },
         createdAt: { type: Date, default: Date.now },
       },
     ],

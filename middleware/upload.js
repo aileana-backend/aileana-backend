@@ -1,0 +1,31 @@
+const multer = require("multer");
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const cloudinary = require("../config/cloudinary");
+
+const allowedFormats = ["jpg", "png", "jpeg", "mp4", "mp3", "wav"];
+
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: async (req, file) => {
+    let resource_type = "auto";
+    return {
+      folder: "posts_media",
+      resource_type,
+      format: file.originalname.split(".").pop(),
+      public_id: `${Date.now()}-${file.originalname}`,
+    };
+  },
+});
+
+const upload = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    const ext = file.originalname.split(".").pop().toLowerCase();
+    if (!allowedFormats.includes(ext)) {
+      return cb(new Error("File format not supported"), false);
+    }
+    cb(null, true);
+  },
+});
+
+module.exports = upload;
