@@ -7,10 +7,9 @@ const allowedFormats = ["jpg", "png", "jpeg", "mp4", "mp3", "wav"];
 const storage = new CloudinaryStorage({
   cloudinary,
   params: async (req, file) => {
-    let resource_type = "auto";
     return {
       folder: "posts_media",
-      resource_type,
+      resource_type: "auto",
       format: file.originalname.split(".").pop(),
       public_id: `${Date.now()}-${file.originalname}`,
     };
