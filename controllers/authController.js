@@ -792,6 +792,43 @@ const checkUsernameAvailability = async (req, res) => {
   }
 };
 
+const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      first_name,
+      middle_name,
+      last_name,
+      dob,
+      gender,
+      biometricPreference,
+    } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    if (first_name) user.first_name = first_name;
+    if (middle_name) user.middle_name = middle_name;
+    if (last_name) user.last_name = last_name;
+    if (dob) user.dob = new Date(dob);
+    if (gender) user.gender = gender;
+    if (biometricPreference) user.biometricPreference = biometricPreference;
+
+    // Save changes
+    await user.save();
+
+    return res.json({
+      message: "Profile updated successfully",
+      user,
+    });
+  } catch (error) {
+    console.error("Update profile error:", error);
+    res.status(500).json({ error: "Server error. Try again later." });
+  }
+};
+
 module.exports = {
   signup,
   login,
@@ -809,4 +846,5 @@ module.exports = {
   resendAccountOtp,
   suggestUsernames,
   toggleSmartReply,
+  updateProfile,
 };

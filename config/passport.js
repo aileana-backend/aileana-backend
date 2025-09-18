@@ -38,6 +38,12 @@ passport.use(
             verified: true,
 
             password: "",
+
+            otp: null,
+            otpType: "",
+            otpExpires: null,
+
+            dob: null,
           });
         }
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
