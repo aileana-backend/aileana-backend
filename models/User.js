@@ -16,6 +16,7 @@ const UserSchema = new mongoose.Schema({
   gender: {
     type: String,
     enum: ["Male", "Female", "Other", "Prefer not to say", ""],
+    default: "",
   },
   password: { type: String, default: "" },
   biometricPreference: {
