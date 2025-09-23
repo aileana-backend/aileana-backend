@@ -36,6 +36,7 @@ passport.use(
             termsAccepted: true,
             biometricPreference: "None",
             verified: true,
+            gender: "",
 
             password: "",
 
