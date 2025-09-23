@@ -77,7 +77,7 @@ io.on("connection", (socket) => {
       socket.emit("private_message", msg);
     } catch (err) {
       console.error("socket message error", err);
-      socket.emit("error", { msg: "Message sending failed" });
+      socket.emit("error", { msg: "Message sending  faild" });
     }
   });
   socket.on("message_read", async (messageId) => {
