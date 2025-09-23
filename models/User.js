@@ -12,10 +12,10 @@ const UserSchema = new mongoose.Schema({
     maxlength: 20,
   },
   email: { type: String, required: true, unique: true, index: true },
-  dob: { type: Date },
+  dob: { type: Date, required: false },
   gender: {
     type: String,
-    enum: ["Male", "Female", "Other", "Prefer not to say", ""],
+    enum: ["Male", "Female", "Other", "Prefer not to say", "", null],
     default: "",
   },
   password: { type: String, default: "" },
