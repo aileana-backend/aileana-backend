@@ -90,7 +90,7 @@ model Transaction {
 
 model Ledger {
   id            String @id @default(cuid())
-  walletId      String @unique
+  walletId      String
   transactionId String
 
   debit  Float @default(0.0)
@@ -107,6 +107,6 @@ model Ledger {
   Wallet      Wallet      @relation(fields: [walletId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   Transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
-  @@index([transactionId], name: "idx_ledger_transaction")
+  @@index([walletId, transactionId], name: "idx_ledger_walletId_transaction")
   @@index([isDeleted, createdAt], name: "idx_ledger_deleted_createdAt")
 }
