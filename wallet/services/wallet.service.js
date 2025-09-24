@@ -91,9 +91,26 @@ class WalletService {
 				if (!updatedWallet) throw new Error("Could not update wallet")
 
 				// Log ledger entry
-				await ledgerService.logLedgerCreditEntry({
+				const logEntry = await ledgerService.logLedgerCreditEntry({
 					walletId: wallet.id,
+					transactionId: transaction.id,
+					credit: amount,
 				})
+				if (!logEntry) throw new Error("Could not log ledger entry")
+
+				// Validate ledger entry again
+				const postLedgerValidation = await ledgerService.validateLedgerInflowOutflowConsistency({ walletId: wallet.id })
+				if (!postLedgerValidation.valid) {
+					const failedTransaction = await transactionService.updateTransactionStatus(transaction.id, TransactionStatus.Failed)
+					if (!failedTransaction) console.error("Could not update failed transaction status after ledger inconsistency")
+					throw new Error("Ledger inconsistency detected after credit")
+				}
+
+				// Update transaction status to completed
+				const completedTransaction = await transactionService.updateTransactionStatus(transaction.id, TransactionStatus.Successful)
+				if (!completedTransaction) throw new Error("Could not update transaction status")
+
+				return updatedWallet
 			})
 		} catch (err) {
 			console.error(`[WalletService][creditWallet]`, err)
