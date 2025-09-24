@@ -15,17 +15,20 @@ const MessageSchema = new mongoose.Schema(
     content: {
       type: String,
       required: true,
-      set: (msg) => encrypt(msg),
-      get: (msg) => decrypt(msg),
+
+      set: (msg) => (msg ? encrypt(msg) : msg),
+      get: (msg) => (msg ? decrypt(msg) : msg),
     },
     read: {
       type: Boolean,
       default: false,
     },
   },
-  { timestamps: true },
-
-  { toJSON: { getters: true }, toObject: { getters: true } }
+  {
+    timestamps: true,
+    toJSON: { getters: true },
+    toObject: { getters: true },
+  }
 );
 
 module.exports = mongoose.model("Message", MessageSchema);
