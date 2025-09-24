@@ -1,4 +1,4 @@
-const prismadb = require("../../config/prisma.config")
+const { prismadb } = require("../../config/prisma.config")
 
 class LedgerService {
 	/**
@@ -7,8 +7,8 @@ class LedgerService {
 	 */
 	async logLedgerCreditEntry({ walletId, transactionId, credit = 0 }) {
 		try {
-			if (!Types.ObjectId.isValid(walletId)) throw new Error("Invalid wallet ID")
-			if (!Types.ObjectId.isValid(transactionId)) throw new Error("Invalid transaction ID")
+			if (!walletId) throw new Error("Invalid wallet ID")
+			if (!transactionId) throw new Error("Invalid transaction ID")
 			if (credit < 0) throw new Error("Invalid credit amount")
 
 			return await this.logLedgerEntry({ walletId, transactionId, amount: credit, type: "credit" })
@@ -24,8 +24,8 @@ class LedgerService {
 	 */
 	async logLedgerDebitEntry({ walletId, transactionId, debit = 0 }) {
 		try {
-			if (!Types.ObjectId.isValid(walletId)) throw new Error("Invalid wallet ID")
-			if (!Types.ObjectId.isValid(transactionId)) throw new Error("Invalid transaction ID")
+			if (!walletId) throw new Error("Invalid wallet ID")
+			if (!transactionId) throw new Error("Invalid transaction ID")
 			if (debit < 0) throw new Error("Invalid debit amount")
 
 			return await this.logLedgerEntry({ walletId, transactionId, amount: debit, type: "debit" })
@@ -83,7 +83,7 @@ class LedgerService {
 	 */
 	async validateLedgerInflowOutflowConsistency({ walletId }) {
 		try {
-			if (!Types.ObjectId.isValid(walletId)) throw new Error("Invalid wallet ID")
+			if (!walletId) throw new Error("Invalid wallet ID")
 
 			// Get user wallet
 			const wallet = await prismadb.wallet.findUnique({ where: { id: walletId } })
@@ -119,7 +119,7 @@ class LedgerService {
 	 */
 	async getLedgerEntries({ walletId, limit = 10, page = 1 }) {
 		try {
-			if (!Types.ObjectId.isValid(walletId)) throw new Error("Invalid wallet ID")
+			if (!walletId) throw new Error("Invalid wallet ID")
 			if (limit <= 0 || page <= 0) throw new Error("Invalid pagination parameters")
 
 			const skip = (page - 1) * limit

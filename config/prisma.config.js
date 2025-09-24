@@ -2,9 +2,9 @@ const { PrismaClient } = require("../generated/prisma")
 const { encryptText, decryptText } = require("../utils/encrypter")
 const { ENCRYPTION_KEY } = require("./secrets.const")
 
-const db = new PrismaClient()
+const prismaConn = new PrismaClient()
 
-const prismadb = db.$extends({
+const prismadb = prismaConn.$extends({
 	name: "EncryptingWalletBalances",
 	query: {
 		wallet: {
@@ -40,6 +40,14 @@ const prismadb = db.$extends({
 				return result
 			},
 
+			async findUnique({ args, query }) {
+				const result = await query(args)
+				if (result && result.balance) {
+					result.balance = parseFloat(decryptText(result.balance, ENCRYPTION_KEY))
+				}
+				return result
+			},
+
 			async findMany({ args, query }) {
 				const results = await query(args)
 				if (results && Array.isArray(results)) {
@@ -51,16 +59,8 @@ const prismadb = db.$extends({
 				}
 				return results
 			},
-
-			async findUnique({ args, query }) {
-				const result = await query(args)
-				if (result && result.balance) {
-					result.balance = parseFloat(decryptText(result.balance, ENCRYPTION_KEY))
-				}
-				return result
-			},
 		},
 	},
 })
 
-module.exports = prismadb
+module.exports = { prismadb, prismaConn }

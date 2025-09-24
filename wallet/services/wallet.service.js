@@ -1,13 +1,13 @@
-const prismadb = require("../../config/prisma.config")
-const { WalletStatus } = require("../../generated/prisma")
+const { prismadb } = require("../../config/prisma.config")
+const { WalletStatus, TransactionType, TransactionFlow, TransactionStatus } = require("../../generated/prisma")
 const User = require("../../models/User")
 const { contractCode } = require("../../monnify/endpoints.const")
 const monnifyService = require("../../monnify/monnify.service")
 const logActivity = require("../../utils/activityLogger")
-const Transaction = require("../../models/Transaction")
 const { encrypt } = require("../../utils/encrypter")
-const { logTransaction } = require("../../utils/transactionLogger")
 const { Types } = require("mongoose")
+const ledgerService = require("./ledger.service")
+const transactionService = require("./transaction.service")
 
 /**
  * Wallet Service
@@ -44,7 +44,7 @@ class WalletService {
 			return wallet.balance
 		} catch (err) {
 			console.error(`[WalletService][getBalance]`, err)
-			throw err
+			return false
 		}
 	}
 
@@ -55,26 +55,49 @@ class WalletService {
 	 * @param {object} [meta]
 	 * @returns {Promise<object>}
 	 */
-	async creditWallet(userId, amount, meta = {}) {
+	async creditWallet(userId, amount, reference, desc = "Transaction successful", meta = {}) {
 		try {
 			if (!Types.ObjectId.isValid(userId)) throw new Error("Invalid user ID")
-			if (typeof amount !== "number" || amount <= 0) throw new Error("Invalid amount")
-			const wallet = await this.findOne(userId)
-			if (!wallet) throw new Error("Wallet not found")
-			// Update balance
-			const updated = await prismadb.wallet.update({ where: { userId }, data: { balance: wallet.balance + amount } })
-			const txn = await Transaction.create({
-				user: userId,
-				type: "credit",
-				amount,
-				meta,
-				status: "success",
+			if (amount <= 0) throw new Error("Invalid credit amount")
+
+			return prismadb.$transaction(async (tx) => {
+				const wallet = await tx.$queryRaw`SELECT * FROM "Wallet" WHERE "userId" = ${userId} AND "isDeleted" = false FOR UPDATE`
+
+				if (!wallet) throw new Error("Wallet not found")
+
+				// create transaction record
+				const transaction = await transactionService.createTransaction({
+					userId,
+					walletId: wallet.id,
+					amount,
+					type: TransactionType.Deposit,
+					flow: TransactionFlow.Credit,
+					reference,
+					status: TransactionStatus.Pending,
+					description: desc,
+					metadata: meta,
+				})
+				if (!transaction) throw new Error("Could not create transaction")
+
+				// validate ledger entry
+				const ledgerValidation = await ledgerService.validateLedgerInflowOutflowConsistency({ walletId: wallet.id })
+				if (!ledgerValidation.valid) throw new Error("Ledger inconsistency detected")
+
+				// Update wallet balance
+				const updatedWallet = await tx.wallet.update({
+					where: { id: wallet.id },
+					data: { balance: wallet.balance + amount },
+				})
+				if (!updatedWallet) throw new Error("Could not update wallet")
+
+				// Log ledger entry
+				await ledgerService.logLedgerCreditEntry({
+					walletId: wallet.id,
+				})
 			})
-			await logTransaction(txn)
-			return { balance: updated.balance, transaction: txn }
 		} catch (err) {
 			console.error(`[WalletService][creditWallet]`, err)
-			throw err
+			return false
 		}
 	}
 
@@ -87,25 +110,9 @@ class WalletService {
 	 */
 	async debitWallet(userId, amount, meta = {}) {
 		try {
-			if (!Types.ObjectId.isValid(userId)) throw new Error("Invalid user ID")
-			if (typeof amount !== "number" || amount <= 0) throw new Error("Invalid amount")
-			const wallet = await this.findOne(userId)
-			if (!wallet) throw new Error("Wallet not found")
-			if (wallet.balance < amount) throw new Error("Insufficient balance")
-			// Update balance
-			const updated = await prismadb.wallet.update({ where: { userId }, data: { balance: wallet.balance - amount } })
-			const txn = await Transaction.create({
-				user: userId,
-				type: "debit",
-				amount,
-				meta,
-				status: "success",
-			})
-			await logTransaction(txn)
-			return { balance: updated.balance, transaction: txn }
 		} catch (err) {
 			console.error(`[WalletService][debitWallet]`, err)
-			throw err
+			return false
 		}
 	}
 
@@ -120,38 +127,9 @@ class WalletService {
 	async transferFunds(fromUserId, toUserId, amount, meta = {}) {
 		// Note: Transaction/session logic may need to be adapted for your ORM
 		try {
-			if (!Types.ObjectId.isValid(fromUserId) || !Types.ObjectId.isValid(toUserId)) throw new Error("Invalid user ID")
-			if (fromUserId === toUserId) throw new Error("Cannot transfer to self")
-			if (typeof amount !== "number" || amount <= 0) throw new Error("Invalid amount")
-			const fromWallet = await this.findOne(fromUserId)
-			const toWallet = await this.findOne(toUserId)
-			if (!fromWallet || !toWallet) throw new Error("Wallet not found")
-			if (fromWallet.balance < amount) throw new Error("Insufficient balance")
-			// Update balances
-			await prismadb.wallet.update({ where: { userId: fromUserId }, data: { balance: fromWallet.balance - amount } })
-			await prismadb.wallet.update({ where: { userId: toUserId }, data: { balance: toWallet.balance + amount } })
-			const txn = await Transaction.create([
-				{
-					user: fromUserId,
-					type: "transfer-out",
-					amount,
-					meta,
-					status: "success",
-				},
-				{
-					user: toUserId,
-					type: "transfer-in",
-					amount,
-					meta,
-					status: "success",
-				},
-			])
-			await logTransaction(txn[0])
-			await logTransaction(txn[1])
-			return { from: fromWallet.balance - amount, to: toWallet.balance + amount, transactions: txn }
 		} catch (err) {
 			console.error(`[WalletService][transferFunds]`, err)
-			throw err
+			return false
 		}
 	}
 
@@ -168,7 +146,7 @@ class WalletService {
 			return encrypt({ balance: wallet.balance, id: wallet.id })
 		} catch (err) {
 			console.error(`[WalletService][getEncryptedWallet]`, err)
-			throw err
+			return false
 		}
 	}
 

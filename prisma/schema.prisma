@@ -47,7 +47,7 @@ model Wallet {
   walletAddressName String
   walletAddressId   String
   walletAddressTag  String
-  balance           String        @default("0.0")
+  balance           String       @default("0.0")
   status            WalletStatus @default(Active)
 
   isDeleted Boolean  @default(false)
