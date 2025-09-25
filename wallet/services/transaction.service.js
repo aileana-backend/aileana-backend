@@ -30,7 +30,7 @@ class TransactionService {
 
 			// validate if the reference already exists
 			const existingTransaction = await prismadb.transaction.findFirst({ where: { reference, isDeleted: false } })
-			if (existingTransaction) return existingTransaction
+			if (existingTransaction) throw new Error("A transaction with this reference already exist.")
 
 			return prismadb.$transaction(async (tx) => {
 				const newTransaction = await tx.transaction.create({

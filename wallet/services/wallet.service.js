@@ -8,6 +8,7 @@ const { encrypt } = require("../../utils/encrypter")
 const { Types } = require("mongoose")
 const ledgerService = require("./ledger.service")
 const transactionService = require("./transaction.service")
+const { uniqueId } = require("../../utils/string.util")
 
 /**
  * Wallet Service
@@ -17,16 +18,27 @@ const transactionService = require("./transaction.service")
 class WalletService {
 	/**
 	 * Find a user's active wallet
-	 * @param {string} userId
+	 * @param {string} id
 	 * @returns {Promise<object|false>}
 	 */
-	async findOne(userId) {
+	async findOne(id) {
 		try {
-			const wallet = await prismadb.wallet.findFirst({ where: { userId, status: WalletStatus.Active, isDeleted: false } })
+			const wallet = await prismadb.wallet.findFirst({ where: { id, status: WalletStatus.Active, isDeleted: false } })
 			if (!wallet) throw new Error("Wallet not found")
 			return wallet
 		} catch (error) {
 			console.error("Error finding wallet:", error)
+			return false
+		}
+	}
+
+	async findByUserId(userId = "") {
+		try {
+			if (!userId) throw new Error("Invalid User ID: User ID is required.")
+
+			return await prismadb.wallet.findFirst({ where: { userId, status: WalletStatus.Active, isDeleted: false } })
+		} catch (error) {
+			console.error("Error: Unable to find user wallet.")
 			return false
 		}
 	}
@@ -39,7 +51,7 @@ class WalletService {
 	async getBalance(userId) {
 		try {
 			if (!Types.ObjectId.isValid(userId)) throw new Error("Invalid user ID")
-			const wallet = await this.findOne(userId)
+			const wallet = await this.findByUserId(userId)
 			if (!wallet) throw new Error("Wallet not found")
 			return wallet.balance
 		} catch (err) {
@@ -55,63 +67,71 @@ class WalletService {
 	 * @param {object} [meta]
 	 * @returns {Promise<object>}
 	 */
-	async creditWallet(userId, amount, reference, desc = "Transaction successful", meta = {}) {
+	async creditWallet(walletId, amount, reference, desc = "Transaction successful", meta = {}) {
 		try {
-			if (!Types.ObjectId.isValid(userId)) throw new Error("Invalid user ID")
+			if (!walletId) throw new Error("Invalid wallet ID")
 			if (amount <= 0) throw new Error("Invalid credit amount")
 
-			return prismadb.$transaction(async (tx) => {
-				const wallet = await tx.$queryRaw`SELECT * FROM "Wallet" WHERE "userId" = ${userId} AND "isDeleted" = false FOR UPDATE`
+			const userWallet = await this.findOne(walletId)
+			if (!userWallet) throw new Error("User wallet not found")
 
-				if (!wallet) throw new Error("Wallet not found")
+			// validate ledger entry
+			const ledgerValidation = await ledgerService.validateLedgerInflowOutflowConsistency({ walletId: userWallet.id })
+			if (!ledgerValidation.valid) throw new Error("Ledger inconsistency detected")
 
-				// create transaction record
-				const transaction = await transactionService.createTransaction({
-					userId,
-					walletId: wallet.id,
-					amount,
-					type: TransactionType.Deposit,
-					flow: TransactionFlow.Credit,
-					reference,
-					status: TransactionStatus.Pending,
-					description: desc,
-					metadata: meta,
-				})
-				if (!transaction) throw new Error("Could not create transaction")
+			// create transaction record
+			const transaction = await transactionService.createTransaction({
+				userId: userWallet.userId,
+				walletId: userWallet.id,
+				amount,
+				type: TransactionType.Deposit,
+				flow: TransactionFlow.Credit,
+				reference,
+				status: TransactionStatus.Pending,
+				description: desc,
+				metadata: meta,
+			})
+			if (!transaction) throw new Error("Could not create transaction")
 
-				// validate ledger entry
-				const ledgerValidation = await ledgerService.validateLedgerInflowOutflowConsistency({ walletId: wallet.id })
-				if (!ledgerValidation.valid) throw new Error("Ledger inconsistency detected")
+			const transactionResult = await prismadb.$transaction(async (tx) => {
+				const walletQueryResults = await tx.$queryRaw`SELECT * FROM "Wallet" WHERE "userId" = ${userWallet.userId} AND "isDeleted" = false FOR UPDATE`
+
+				if (!walletQueryResults || walletQueryResults?.length === 0) throw new Error("Wallet not found")
 
 				// Update wallet balance
 				const updatedWallet = await tx.wallet.update({
-					where: { id: wallet.id },
-					data: { balance: wallet.balance + amount },
+					where: { id: userWallet.id },
+					data: { balance: userWallet.balance + amount },
 				})
 				if (!updatedWallet) throw new Error("Could not update wallet")
 
-				// Log ledger entry
-				const logEntry = await ledgerService.logLedgerCreditEntry({
-					walletId: wallet.id,
-					transactionId: transaction.id,
-					credit: amount,
-				})
-				if (!logEntry) throw new Error("Could not log ledger entry")
-
-				// Validate ledger entry again
-				const postLedgerValidation = await ledgerService.validateLedgerInflowOutflowConsistency({ walletId: wallet.id })
-				if (!postLedgerValidation.valid) {
-					const failedTransaction = await transactionService.updateTransactionStatus(transaction.id, TransactionStatus.Failed)
-					if (!failedTransaction) console.error("Could not update failed transaction status after ledger inconsistency")
-					throw new Error("Ledger inconsistency detected after credit")
-				}
-
-				// Update transaction status to completed
-				const completedTransaction = await transactionService.updateTransactionStatus(transaction.id, TransactionStatus.Successful)
-				if (!completedTransaction) throw new Error("Could not update transaction status")
-
 				return updatedWallet
 			})
+			if (!transactionResult) throw new Error("Couldn't fulfil credit operation.")
+
+			// Log ledger entry
+			const logEntry = await ledgerService.logLedgerCreditEntry({
+				walletId: userWallet.id,
+				transactionId: transaction.id,
+				credit: amount,
+			})
+			if (!logEntry) throw new Error("Could not log ledger entry")
+
+			// Validate ledger entry again
+			const postLedgerValidation = await ledgerService.validateLedgerInflowOutflowConsistency({ walletId: userWallet.id })
+			if (!postLedgerValidation.valid) {
+				const failedTransaction = await transactionService.updateTransactionStatus(transaction.id, TransactionStatus.Failed)
+				if (!failedTransaction) console.error("Could not update failed transaction status after ledger inconsistency")
+
+				// Todo: Roll-back wallet operation before throwing error.
+				throw new Error("Ledger inconsistency detected after credit")
+			}
+
+			// Update transaction status to completed
+			const completedTransaction = await transactionService.updateTransactionStatus(transaction.id, TransactionStatus.Successful)
+			if (!completedTransaction) throw new Error("Could not update transaction status")
+
+			return this.findOne(userWallet.id)
 		} catch (err) {
 			console.error(`[WalletService][creditWallet]`, err)
 			return false
@@ -209,7 +229,7 @@ class WalletService {
 			const user = await User.findById(userId)
 			if (!user) throw new Error("User not found")
 
-			const walletExists = await this.findOne(user.id)
+			const walletExists = await this.findByUserId(user.id)
 			if (walletExists) {
 				return walletExists
 			}

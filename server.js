@@ -20,6 +20,7 @@ const Message = require("./models/Message")
 const User = require("./models/User")
 const monnifyService = require("./monnify/monnify.service")
 const walletService = require("./wallet/services/wallet.service")
+const { uniqueId } = require("./utils/string.util")
 
 const app = express()
 const server = http.createServer(app)
@@ -104,4 +105,15 @@ app.use("/api", messagesRoutes)
 const PORT = process.env.PORT || 4000
 server.listen(PORT, async () => {
 	console.log(`Server running on port ${PORT}`)
+
+	const newWallet = await walletService.createWallet("68d3ed3483675ab3d739476e")
+
+	const reference = uniqueId(12, true) // unique numeric reference
+
+	if (newWallet) {
+		const creditResult = await walletService.creditWallet(newWallet.id, 5000, reference, "Initial wallet funding", { source: "system" })
+		console.log("====================================")
+		console.log(creditResult)
+		console.log("====================================")
+	}
 })

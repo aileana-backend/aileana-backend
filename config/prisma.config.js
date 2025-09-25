@@ -2,7 +2,7 @@ const { PrismaClient } = require("../generated/prisma")
 const { encryptText, decryptText } = require("../utils/encrypter")
 const { ENCRYPTION_KEY } = require("./secrets.const")
 
-const prismaConn = new PrismaClient()
+const prismaConn = new PrismaClient({})
 
 const prismadb = prismaConn.$extends({
 	name: "EncryptingWalletBalances",
