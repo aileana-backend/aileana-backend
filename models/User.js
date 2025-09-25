@@ -27,6 +27,7 @@ const UserSchema = new mongoose.Schema({
   termsAccepted: { type: Boolean, required: true },
   verified: { type: Boolean, required: false },
   smartReplyEnabled: { type: Boolean, default: false },
+  store: { type: mongoose.Schema.Types.ObjectId, ref: "Store" },
   createdAt: { type: Date, default: Date.now },
   otp: { type: String },
   otpType: {

@@ -5,6 +5,7 @@ const logTransaction = require("../utils/transactionLogger");
 const logActivity = require("../utils/activityLogger");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const Store = require("../models/Store");
 const Wallet = require("../models/Wallet");
 const { createWallet } = require("../utils/onepipe");
 const sendEmail = require("../utils/sendMail");
@@ -82,7 +83,13 @@ const signup = async (req, res) => {
     });
 
     const newUser = await user.save();
+    // create empty store for user
+    const store = new Store({ owner: user._id });
+    await store.save();
 
+    // link store back to user
+    newUser.store = store._id;
+    await newUser.save();
     const subject = "Account verification OTP";
     const htmlContent = `
       <p>Hello ${newUser.first_name || "User"},</p>
