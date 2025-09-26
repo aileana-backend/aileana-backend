@@ -125,10 +125,105 @@ const getProductById = async (req, res) => {
   }
 };
 
+// Public: Get products by store
+const getProductsByStore = async (req, res) => {
+  try {
+    const storeId = req.params.storeId;
+    const products = await Product.find({ store: storeId, isActive: true })
+      .populate("store", "name")
+      .populate("category", "name");
+
+    res.json(products);
+  } catch (err) {
+    console.error("Get products by store error:", err);
+    res.status(500).json({ msg: "Server error" });
+  }
+};
+// Public: Get products by category
+const getProductsByCategory = async (req, res) => {
+  try {
+    const categoryId = req.params.categoryId;
+    const products = await Product.find({
+      category: categoryId,
+      isActive: true,
+    })
+      .populate("store", "name")
+      .populate("category", "name");
+
+    res.json(products);
+  } catch (err) {
+    console.error("Get products by category error:", err);
+    res.status(500).json({ msg: "Server error" });
+  }
+};
+
+// Public: Search products
+const searchProducts = async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q) return res.status(400).json({ msg: "Search query is required" });
+
+    const regex = new RegExp(q, "i"); // case-insensitive
+    const products = await Product.find({
+      isActive: true,
+      $or: [{ name: regex }, { description: regex }],
+    })
+      .populate("store", "name")
+      .populate("category", "name");
+
+    res.json(products);
+  } catch (err) {
+    console.error("Search products error:", err);
+    res.status(500).json({ msg: "Server error" });
+  }
+};
+// Store owner: Toggle product active/inactive
+const toggleProductStatus = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const product = await Product.findById(req.params.id);
+
+    if (!product) return res.status(404).json({ msg: "Product not found" });
+
+    const store = await Store.findById(product.store);
+    if (!store || store.owner.toString() !== userId.toString()) {
+      return res
+        .status(403)
+        .json({ msg: "Not authorized to update this product" });
+    }
+
+    product.isActive = !product.isActive;
+    await product.save();
+
+    res.json({ msg: "Product status updated", product });
+  } catch (err) {
+    console.error("Toggle product status error:", err);
+    res.status(500).json({ msg: "Server error" });
+  }
+};
+// Public: Get only active products
+const getActiveProducts = async (req, res) => {
+  try {
+    const products = await Product.find({ isActive: true })
+      .populate("store", "name")
+      .populate("category", "name");
+
+    res.json(products);
+  } catch (err) {
+    console.error("Get active products error:", err);
+    res.status(500).json({ msg: "Server error" });
+  }
+};
+
 module.exports = {
   createProduct,
   getProducts,
   getProductById,
   updateProduct,
   deleteProduct,
+  getProductsByStore,
+  getProductsByCategory,
+  searchProducts,
+  toggleProductStatus,
+  getActiveProducts,
 };

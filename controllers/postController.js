@@ -1,5 +1,5 @@
 const Post = require("../models/Post");
-
+const User = require("../models/User");
 const createPost = async (req, res) => {
   try {
     const { type, content } = req.body;
@@ -43,7 +43,36 @@ const getPosts = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+const getPost = async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id)
+      .populate("user", "username first_name last_name email")
+      .populate("likes", "username email")
+      .populate("comments.user", "username email");
 
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    res.json(post);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+const getMyPost = async (req, res) => {
+  try {
+    const posts = await Post.find({ user: req.user._id })
+      .populate("user", "username first_name last_name email")
+      .populate("likes", "username email")
+      .populate("comments.user", "username email");
+
+    res.json(posts);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 const toggleLike = async (req, res) => {
   try {
     const post = await Post.findById(req.params.postId);
@@ -128,10 +157,36 @@ const deleteComment = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+const deletePost = async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.postId);
+
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    if (post.user.toString() !== req.user._id) {
+      return res
+        .status(403)
+        .json({ message: "Unauthorized to delete this post" });
+    }
+
+    await post.deleteOne();
+
+    res.json({ message: "Post deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 module.exports = {
   createPost,
   getPosts,
   toggleLike,
   addComment,
   deleteComment,
+  deletePost,
+  getPost,
+  getMyPost,
 };
