@@ -1,17 +1,18 @@
 const { prismadb } = require("../../config/prisma.config")
+const { TransactionFlow } = require("../../generated/prisma")
 
 class LedgerService {
 	/**
 	 * Logs a ledger credit entry for a wallet transaction.
 	 * @returns
 	 */
-	async logLedgerCreditEntry({ walletId, transactionId, credit = 0 }) {
+	async logLedgerCreditEntry({ walletId, transactionId, credit = 0, prevBalance = 0, currBalance = 0 }) {
 		try {
 			if (!walletId) throw new Error("Invalid wallet ID")
 			if (!transactionId) throw new Error("Invalid transaction ID")
 			if (credit < 0) throw new Error("Invalid credit amount")
 
-			return await this.logLedgerEntry({ walletId, transactionId, amount: credit, type: "credit" })
+			return await this.logLedgerEntry({ walletId, transactionId, amount: credit, prevBalance, currBalance, type: TransactionFlow.Credit })
 		} catch (error) {
 			console.error(`[LedgerService][logLedgerCreditEntry]`, error)
 			return false
@@ -22,13 +23,13 @@ class LedgerService {
 	 * Logs a ledger debit entry for a wallet transaction.
 	 * @returns
 	 */
-	async logLedgerDebitEntry({ walletId, transactionId, debit = 0 }) {
+	async logLedgerDebitEntry({ walletId, transactionId, debit = 0, prevBalance = 0, currBalance = 0 }) {
 		try {
 			if (!walletId) throw new Error("Invalid wallet ID")
 			if (!transactionId) throw new Error("Invalid transaction ID")
 			if (debit < 0) throw new Error("Invalid debit amount")
 
-			return await this.logLedgerEntry({ walletId, transactionId, amount: debit, type: "debit" })
+			return await this.logLedgerEntry({ walletId, transactionId, amount: debit, prevBalance, currBalance, type: TransactionFlow.Debit })
 		} catch (error) {
 			console.error(`[LedgerService][logLedgerDebitEntry]`, error)
 			return false
@@ -39,14 +40,12 @@ class LedgerService {
 	 * Logs a ledger entry for a wallet transaction.
 	 * @returns
 	 */
-	async logLedgerEntry({ walletId, transactionId, amount = 0, type = "credit" }) {
-		// Get user wallet
-		const wallet = await prismadb.wallet.findUnique({ where: { id: walletId } })
-		if (!wallet) throw new Error("Wallet not found")
-
-		// Calculate wallet new and previous balance
-		const previousBalance = wallet.balance - amount
-		const newBalance = wallet.balance
+	async logLedgerEntry({ walletId, transactionId, amount = 0, prevBalance = 0, currBalance = 0, type = TransactionFlow.Credit }) {
+		if (!walletId) throw new Error("Invalid wallet ID")
+		if (!transactionId) throw new Error("Invalid transaction ID")
+		if (amount <= 0) throw new Error("Invalid amount")
+		// Validate entry type
+		if (!Object.values(TransactionFlow).includes(type)) throw new Error("Invalid entry type")
 
 		// Check if ledger entry already exists for this transaction and wallet
 		const existingEntry = await prismadb.ledger.findFirst({
@@ -59,10 +58,10 @@ class LedgerService {
 			data: {
 				walletId,
 				transactionId,
-				prevBalance: previousBalance,
-				currBalance: newBalance,
-				credit: type === "credit" ? amount : 0,
-				debit: type === "debit" ? amount : 0,
+				prevBalance,
+				currBalance,
+				credit: type === TransactionFlow.Credit ? amount : 0,
+				debit: type === TransactionFlow.Debit ? amount : 0,
 			},
 		})
 		return ledgerEntry

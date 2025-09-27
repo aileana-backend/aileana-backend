@@ -4,7 +4,7 @@ const User = require("../../models/User")
 const { contractCode } = require("../../monnify/endpoints.const")
 const monnifyService = require("../../monnify/monnify.service")
 const logActivity = require("../../utils/activityLogger")
-const { encrypt } = require("../../utils/encrypter")
+const { encrypt, decryptText } = require("../../utils/encrypter")
 const { Types } = require("mongoose")
 const ledgerService = require("./ledger.service")
 const transactionService = require("./transaction.service")
@@ -67,10 +67,12 @@ class WalletService {
 	 * @param {object} [meta]
 	 * @returns {Promise<object>}
 	 */
-	async creditWallet(walletId, amount, reference, desc = "Transaction successful", meta = {}) {
+	async creditWallet(walletId = "", amount = 0, fees = 0, reference = "", desc = "Transaction successful", meta = {}) {
 		try {
 			if (!walletId) throw new Error("Invalid wallet ID")
 			if (amount <= 0) throw new Error("Invalid credit amount")
+
+			if (!reference) throw new Error("Transaction reference is required for credits")
 
 			const userWallet = await this.findOne(walletId)
 			if (!userWallet) throw new Error("User wallet not found")
@@ -87,6 +89,7 @@ class WalletService {
 				type: TransactionType.Deposit,
 				flow: TransactionFlow.Credit,
 				reference,
+				fees,
 				status: TransactionStatus.Pending,
 				description: desc,
 				metadata: meta,
@@ -98,10 +101,22 @@ class WalletService {
 
 				if (!walletQueryResults || walletQueryResults?.length === 0) throw new Error("Wallet not found")
 
+				// Get the wallet balance from the query result
+				const currentWallet = walletQueryResults[0]
+				if (!currentWallet) throw new Error("Could not retrieve wallet details")
+
+				// decrypted balance {number} balance
+				const decryptedBalance = parseFloat(decryptText(currentWallet.balance, process.env.ENCRYPTION_KEY))
+				if (isNaN(decryptedBalance)) throw new Error("Could not decrypt wallet balance")
+
+				// Calculate new balance
+				const newBalance = decryptedBalance + transaction.totalAmount
+				if (isNaN(newBalance)) throw new Error("Could not calculate new wallet balance")
+
 				// Update wallet balance
 				const updatedWallet = await tx.wallet.update({
 					where: { id: userWallet.id },
-					data: { balance: userWallet.balance + amount },
+					data: { balance: newBalance },
 				})
 				if (!updatedWallet) throw new Error("Could not update wallet")
 
@@ -113,7 +128,7 @@ class WalletService {
 			const logEntry = await ledgerService.logLedgerCreditEntry({
 				walletId: userWallet.id,
 				transactionId: transaction.id,
-				credit: amount,
+				credit: transaction.totalAmount,
 			})
 			if (!logEntry) throw new Error("Could not log ledger entry")
 
@@ -145,8 +160,86 @@ class WalletService {
 	 * @param {object} [meta]
 	 * @returns {Promise<object>}
 	 */
-	async debitWallet(userId, amount, meta = {}) {
+	async debitWallet(walletId = "", amount = 0, fees = 0, reference = "", desc = "Transaction successful", meta = {}) {
 		try {
+			if (!walletId) throw new Error("Invalid wallet ID")
+			if (amount <= 0) throw new Error("Invalid debit amount")
+
+			if (!reference) throw new Error("Transaction reference is required for debits")
+
+			const userWallet = await this.findOne(walletId)
+			if (!userWallet) throw new Error("User wallet not found")
+
+			// validate ledger entry
+			const ledgerValidation = await ledgerService.validateLedgerInflowOutflowConsistency({ walletId: userWallet.id })
+			if (!ledgerValidation.valid) throw new Error("Ledger inconsistency detected")
+
+			// create transaction record
+			const transaction = await transactionService.createTransaction({
+				userId: userWallet.userId,
+				walletId: userWallet.id,
+				amount,
+				type: TransactionType.Withdrawal,
+				flow: TransactionFlow.Debit,
+				reference,
+				fees,
+				status: TransactionStatus.Pending,
+				description: desc,
+				metadata: meta,
+			})
+			if (!transaction) throw new Error("Could not create transaction")
+
+			const transactionResult = await prismadb.$transaction(async (tx) => {
+				const walletQueryResults = await tx.$queryRaw`SELECT * FROM "Wallet" WHERE "userId" = ${userWallet.userId} AND "isDeleted" = false FOR UPDATE`
+
+				if (!walletQueryResults || walletQueryResults?.length === 0) throw new Error("Wallet not found")
+
+				// Get the wallet balance from the query result
+				const currentWallet = walletQueryResults[0]
+				if (!currentWallet) throw new Error("Could not retrieve wallet details")
+
+				// decrypted balance {number} balance
+				const decryptedBalance = parseFloat(decryptText(currentWallet.balance, process.env.ENCRYPTION_KEY))
+				if (isNaN(decryptedBalance)) throw new Error("Could not decrypt wallet balance")
+
+				// Calculate new balance
+				const newBalance = decryptedBalance - transaction.totalAmount
+				if (isNaN(newBalance)) throw new Error("Could not calculate new wallet balance")
+
+				// Update wallet balance
+				const updatedWallet = await tx.wallet.update({
+					where: { id: userWallet.id },
+					data: { balance: newBalance },
+				})
+				if (!updatedWallet) throw new Error("Could not update wallet")
+
+				return updatedWallet
+			})
+			if (!transactionResult) throw new Error("Couldn't fulfil debit operation.")
+
+			// Log ledger entry
+			const logEntry = await ledgerService.logLedgerDebitEntry({
+				walletId: userWallet.id,
+				transactionId: transaction.id,
+				debit: transaction.totalAmount,
+			})
+			if (!logEntry) throw new Error("Could not log ledger entry")
+
+			// Validate ledger entry again
+			const postLedgerValidation = await ledgerService.validateLedgerInflowOutflowConsistency({ walletId: userWallet.id })
+			if (!postLedgerValidation.valid) {
+				const failedTransaction = await transactionService.updateTransactionStatus(transaction.id, TransactionStatus.Failed)
+				if (!failedTransaction) console.error("Could not update failed transaction status after ledger inconsistency")
+
+				// Todo: Roll-back wallet operation before throwing error.
+				throw new Error("Ledger inconsistency detected after debit")
+			}
+
+			// Update transaction status to completed
+			const completedTransaction = await transactionService.updateTransactionStatus(transaction.id, TransactionStatus.Successful)
+			if (!completedTransaction) throw new Error("Could not update transaction status")
+
+			return this.findOne(userWallet.id)
 		} catch (err) {
 			console.error(`[WalletService][debitWallet]`, err)
 			return false
