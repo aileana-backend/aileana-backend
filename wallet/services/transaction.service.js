@@ -7,7 +7,7 @@ class TransactionService {
 	 * Create a new transaction record
 	 * @returns
 	 */
-	async createTransaction({ userId, walletId, fees = 0, amount = 0, type, flow, status = "pending", reference, description = null, relatedTransactionId = null, metadata = null }) {
+	async createTransaction(tranx, { userId, walletId, fees = 0, amount = 0, type, flow, status = "pending", reference, description = null, relatedTransactionId = null, metadata = null }) {
 		try {
 			if (!Types.ObjectId.isValid(userId)) throw new Error("Invalid user ID")
 
@@ -29,30 +29,24 @@ class TransactionService {
 			if (!validStatus) throw new Error("Invalid transaction status")
 
 			// validate if the reference already exists
-			const existingTransaction = await prismadb.transaction.findFirst({ where: { reference, isDeleted: false } })
+			const existingTransaction = await tranx.transaction.findFirst({ where: { reference, isDeleted: false } })
 			if (existingTransaction) throw new Error("A transaction with this reference already exist.")
 
-			return prismadb.$transaction(async (tx) => {
-				const newTransaction = await tx.transaction.create({
-					data: {
-						userId,
-						walletId,
-						fees,
-						amount,
-						totalAmount,
-						type,
-						flow,
-						status,
-						reference,
-						description,
-						relatedTransactionId,
-						metadata,
-					},
-				})
-
-				if (!newTransaction) throw new Error("Transaction creation failed")
-
-				return newTransaction
+			return await tranx.transaction.create({
+				data: {
+					userId,
+					walletId,
+					fees,
+					amount,
+					totalAmount,
+					type,
+					flow,
+					status,
+					reference,
+					description,
+					relatedTransactionId,
+					metadata,
+				},
 			})
 		} catch (error) {
 			console.error(`[TransactionService][createTransaction]`, error)
@@ -98,14 +92,14 @@ class TransactionService {
 	 * @param {string} status
 	 * @returns {Promise<Object|null|false>}
 	 */
-	async updateTransactionStatus(transactionId, status) {
+	async updateTransactionStatus(tranx, { transactionId, status }) {
 		try {
 			if (!transactionId) throw new Error("Transaction ID is required")
 
 			const validStatus = Object.values(TransactionStatus).includes(status)
 			if (!validStatus) throw new Error("Invalid transaction status")
 
-			return await prismadb.transaction.update({
+			return await tranx.transaction.update({
 				where: { id: transactionId },
 				data: { status },
 			})

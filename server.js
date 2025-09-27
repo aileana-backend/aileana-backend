@@ -117,27 +117,27 @@ server.listen(PORT, async () => {
 		// Expected result is that each transaction is processed sequentially and wallet balance is correctly updated
 		// instead of being corrupted by concurrent updates.
 
-		// const creditResult1 = await walletService.creditWallet(newWallet.id, 10000, 0, reference1, "Initial wallet funding", { source: "system" })
+		const creditResult1 = await walletService.creditWallet(newWallet.id, 10000, 0, reference1, "Initial wallet funding", { source: "system" })
 		// const creditResult2 = await walletService.creditWallet(newWallet.id, 10000, 0, reference2, "Initial wallet funding", { source: "system" })
 		// const creditResult3 = await walletService.debitWallet(newWallet.id, 5000, 100, reference3, "Initial wallet funding", { source: "system" })
 
 		// console.log("Single sequential transaction results")
-		// console.log("====================================")
-		// console.log(creditResult1)
+		console.log("====================================")
+		console.log(creditResult1)
 		// console.log(creditResult2)
 		// console.log(creditResult3)
-		// console.log("====================================")
+		console.log("====================================")
 
 		// Lets procdues a parrel processing of the above transactions using Promise.allSettled
-		const [creditResultA, creditResultB, creditResultC] = await Promise.allSettled([
-			walletService.creditWallet(newWallet.id, 10000, 0, uniqueId(12, true), "Initial wallet funding", { source: "system" }),
-			walletService.creditWallet(newWallet.id, 10000, 0, uniqueId(12, true), "Initial wallet funding", { source: "system" }),
-			walletService.debitWallet(newWallet.id, 5000, 100, uniqueId(12, true), "Initial wallet funding", { source: "system" }),
-		])
+		// const [creditResultA, creditResultB, creditResultC] = await Promise.allSettled([
+		// 	walletService.creditWallet(newWallet.id, 10000, 0, uniqueId(12, true), "Initial wallet funding", { source: "system" }),
+		// 	walletService.creditWallet(newWallet.id, 10000, 0, uniqueId(12, true), "Initial wallet funding", { source: "system" }),
+		// 	walletService.debitWallet(newWallet.id, 5000, 100, uniqueId(12, true), "Initial wallet funding", { source: "system" }),
+		// ])
 
-		console.log("Parallel transaction results")
-		console.log(creditResultA)
-		console.log(creditResultB)
-		console.log(creditResultC)
+		// console.log("Parallel transaction results")
+		// console.log(creditResultA)
+		// console.log(creditResultB)
+		// console.log(creditResultC)
 	}
 })

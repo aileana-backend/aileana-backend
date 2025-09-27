@@ -77,74 +77,81 @@ class WalletService {
 			const userWallet = await this.findOne(walletId)
 			if (!userWallet) throw new Error("User wallet not found")
 
-			// validate ledger entry
-			const ledgerValidation = await ledgerService.validateLedgerInflowOutflowConsistency({ walletId: userWallet.id })
-			if (!ledgerValidation.valid) throw new Error("Ledger inconsistency detected")
+			const transactionResult = await prismadb.$transaction(
+				async (tx) => {
+					const walletQueryResults = await tx.$queryRaw`SELECT * FROM "Wallet" WHERE "userId" = ${userWallet.userId} AND "isDeleted" = false FOR UPDATE`
 
-			// create transaction record
-			const transaction = await transactionService.createTransaction({
-				userId: userWallet.userId,
-				walletId: userWallet.id,
-				amount,
-				type: TransactionType.Deposit,
-				flow: TransactionFlow.Credit,
-				reference,
-				fees,
-				status: TransactionStatus.Pending,
-				description: desc,
-				metadata: meta,
-			})
-			if (!transaction) throw new Error("Could not create transaction")
+					if (!walletQueryResults || walletQueryResults?.length === 0) throw new Error("Wallet not found")
 
-			const transactionResult = await prismadb.$transaction(async (tx) => {
-				const walletQueryResults = await tx.$queryRaw`SELECT * FROM "Wallet" WHERE "userId" = ${userWallet.userId} AND "isDeleted" = false FOR UPDATE`
+					// validate ledger entry
+					const ledgerValidation = await ledgerService.validateLedgerInflowOutflowConsistency(tx, { walletId: userWallet.id })
+					if (!ledgerValidation.valid) throw new Error("Ledger inconsistency detected")
 
-				if (!walletQueryResults || walletQueryResults?.length === 0) throw new Error("Wallet not found")
+					// create transaction record
+					const transaction = await transactionService.createTransaction(tx, {
+						userId: userWallet.userId,
+						walletId: userWallet.id,
+						amount,
+						type: TransactionType.Deposit,
+						flow: TransactionFlow.Credit,
+						reference,
+						fees,
+						status: TransactionStatus.Pending,
+						description: desc,
+						metadata: meta,
+					})
+					if (!transaction) throw new Error("Could not create transaction")
 
-				// Get the wallet balance from the query result
-				const currentWallet = walletQueryResults[0]
-				if (!currentWallet) throw new Error("Could not retrieve wallet details")
+					// Get the wallet balance from the query result
+					const currentWallet = walletQueryResults[0]
+					if (!currentWallet) throw new Error("Could not retrieve wallet details")
 
-				// decrypted balance {number} balance
-				const decryptedBalance = parseFloat(decryptText(currentWallet.balance, process.env.ENCRYPTION_KEY))
-				if (isNaN(decryptedBalance)) throw new Error("Could not decrypt wallet balance")
+					// decrypted balance {number} balance
+					const decryptedBalance = parseFloat(decryptText(currentWallet.balance, process.env.ENCRYPTION_KEY))
+					if (isNaN(decryptedBalance)) throw new Error("Could not decrypt wallet balance")
 
-				// Calculate new balance
-				const newBalance = decryptedBalance + transaction.totalAmount
-				if (isNaN(newBalance)) throw new Error("Could not calculate new wallet balance")
+					// Calculate new balance
+					const newBalance = decryptedBalance + transaction.totalAmount
+					if (isNaN(newBalance)) throw new Error("Could not calculate new wallet balance")
 
-				// Update wallet balance
-				const updatedWallet = await tx.wallet.update({
-					where: { id: userWallet.id },
-					data: { balance: newBalance },
-				})
-				if (!updatedWallet) throw new Error("Could not update wallet")
+					// Update wallet balance
+					const updatedWallet = await tx.wallet.update({
+						where: { id: userWallet.id },
+						data: { balance: newBalance },
+					})
+					if (!updatedWallet) throw new Error("Could not update wallet")
 
-				return updatedWallet
-			})
+					// Log ledger entry
+					const logEntry = await ledgerService.logLedgerCreditEntry(tx, {
+						walletId: userWallet.id,
+						transactionId: transaction.id,
+						credit: transaction.totalAmount,
+						prevBalance: decryptedBalance,
+						currBalance: newBalance,
+					})
+					if (!logEntry) throw new Error("Could not log ledger entry")
+
+					// Validate ledger entry again
+					const postLedgerValidation = await ledgerService.validateLedgerInflowOutflowConsistency(tx, { walletId: userWallet.id })
+					if (!postLedgerValidation.valid) {
+						const failedTransaction = await transactionService.updateTransactionStatus(tx, { transactionId: transaction.id, status: TransactionStatus.Failed })
+						if (!failedTransaction) console.error("Could not update failed transaction status after ledger inconsistency")
+
+						// Todo: Roll-back wallet operation before throwing error.
+						throw new Error("Ledger inconsistency detected after credit")
+					}
+
+					// Update transaction status to completed
+					const completedTransaction = await transactionService.updateTransactionStatus(tx, { transactionId: transaction.id, status: TransactionStatus.Successful })
+					if (!completedTransaction) throw new Error("Could not update transaction status")
+
+					return updatedWallet
+				},
+				{
+					timeout: 15000, // 15 seconds
+				},
+			)
 			if (!transactionResult) throw new Error("Couldn't fulfil credit operation.")
-
-			// Log ledger entry
-			const logEntry = await ledgerService.logLedgerCreditEntry({
-				walletId: userWallet.id,
-				transactionId: transaction.id,
-				credit: transaction.totalAmount,
-			})
-			if (!logEntry) throw new Error("Could not log ledger entry")
-
-			// Validate ledger entry again
-			const postLedgerValidation = await ledgerService.validateLedgerInflowOutflowConsistency({ walletId: userWallet.id })
-			if (!postLedgerValidation.valid) {
-				const failedTransaction = await transactionService.updateTransactionStatus(transaction.id, TransactionStatus.Failed)
-				if (!failedTransaction) console.error("Could not update failed transaction status after ledger inconsistency")
-
-				// Todo: Roll-back wallet operation before throwing error.
-				throw new Error("Ledger inconsistency detected after credit")
-			}
-
-			// Update transaction status to completed
-			const completedTransaction = await transactionService.updateTransactionStatus(transaction.id, TransactionStatus.Successful)
-			if (!completedTransaction) throw new Error("Could not update transaction status")
 
 			return this.findOne(userWallet.id)
 		} catch (err) {
