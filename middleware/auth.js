@@ -32,6 +32,11 @@ const verifySocketToken = async (socket) => {
   const user = await User.findById(decoded.id);
   if (!user) throw new Error("Invalid token");
   socket.user = user;
+
+  await User.findByIdAndUpdate(user._id, {
+    isOnline: true,
+    lastSeen: new Date(),
+  });
 };
 
 module.exports = { auth, verifySocketToken };

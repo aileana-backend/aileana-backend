@@ -23,6 +23,8 @@ const {
   resetForgotPassword,
   checkEmailAvailability,
   checkUsernameAvailability,
+  getOnlineUsers,
+  getUserLastSeen,
 } = require("../controllers/authController");
 const {
   signupRules,
@@ -48,6 +50,10 @@ router.post("/change-password-verify", auth, verifyChangePassword);
 router.post("/verify-otp", verifyAccountOtp);
 router.post("/resend-otp", resendAccountOtp);
 router.post("/suggest-usernames", suggestUsernames);
+
+router.get("/online", auth, getOnlineUsers);
+
+router.get("/:id/last-seen", auth, getUserLastSeen);
 router.post("/messages/toggle-smart-reply", auth, toggleSmartReply);
 router.get(
   "/google",

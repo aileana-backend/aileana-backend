@@ -93,8 +93,17 @@ io.on("connection", (socket) => {
     }
   });
   socket.broadcast.emit("user_online", { userId });
-  socket.on("disconnect", () => {
-    socket.broadcast.emit("user_offline", { userId });
+  socket.on("disconnect", async () => {
+    try {
+      await User.findByIdAndUpdate(socket.userId, {
+        isOnline: false,
+        lastSeen: new Date(),
+      });
+
+      socket.broadcast.emit("user_offline", { userId });
+    } catch (err) {
+      console.error("Error updating user on disconnect:", err);
+    }
   });
 });
 app.use((req, res, next) => {

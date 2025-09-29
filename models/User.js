@@ -24,6 +24,8 @@ const UserSchema = new mongoose.Schema({
     enum: ["None", "FaceID", "Fingerprint"],
     default: "None",
   },
+  isOnline: { type: Boolean, default: false },
+  lastSeen: { type: Date, default: Date.now },
   termsAccepted: { type: Boolean, required: true },
   verified: { type: Boolean, required: false },
   smartReplyEnabled: { type: Boolean, default: false },

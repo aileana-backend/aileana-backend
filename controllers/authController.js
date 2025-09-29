@@ -836,6 +836,26 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const getOnlineUsers = async (req, res) => {
+  try {
+    const users = await User.find({ isOnline: true }).select(
+      "first_name last_name username email isOnline lastSeen"
+    );
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching online users" });
+  }
+};
+const getUserLastSeen = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(id).select("username isOnline lastSeen");
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching user last seen" });
+  }
+};
 module.exports = {
   signup,
   login,
@@ -854,4 +874,6 @@ module.exports = {
   suggestUsernames,
   toggleSmartReply,
   updateProfile,
+  getUserLastSeen,
+  getOnlineUsers,
 };
