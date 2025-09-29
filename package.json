@@ -35,5 +35,9 @@
   "keywords": [],
   "author": "Akabueze Franklin",
   "license": "ISC",
-  "type": "commonjs"
+  "type": "commonjs",
+  "engines": {
+    "node": "22.x",
+    "npm": "10.x"
+  }
 }
