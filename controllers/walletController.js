@@ -10,7 +10,7 @@ const createUserWallet = async (req, res) => {
   try {
     const existingWallet = await Wallet.findOne({ userId: req.user.id });
     if (existingWallet) {
-      return res.status(400).json({ message: "Wallet already exists" });
+      return res.status(400).json({ message: "Wallet already existsindd" });
     }
 
     const wallet = await Wallet.create({
