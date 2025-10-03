@@ -13,6 +13,7 @@ const authRoutes = require("./routes/auth")
 const profileRoutes = require("./routes/profile")
 const walletRoutes = require("./routes/wallet")
 const messagesRoutes = require("./routes/messages")
+
 const callsRoutes = require("./routes/calls")
 const postRoutes = require("./routes/post")
 const { verifySocketToken } = require("./middleware/auth")
@@ -21,6 +22,7 @@ const User = require("./models/User")
 const monnifyService = require("./monnify/monnify.service")
 const walletService = require("./wallet/services/wallet.service")
 const { uniqueId } = require("./utils/string.util")
+const webhookRoute = require("./wallet/routes/webhook.route")
 
 const app = express()
 const server = http.createServer(app)
@@ -28,7 +30,13 @@ const server = http.createServer(app)
 connectDB()
 
 app.use(cors())
-app.use(express.json())
+app.use(
+	express.json({
+		verify: (req, res, buf) => {
+			req.rawBody = buf.toString()
+		},
+	}),
+)
 app.use(passport.initialize())
 // API routes
 app.use("/api", authRoutes)
@@ -37,6 +45,8 @@ app.use("/api", walletRoutes)
 //app.use("/api", messagesRoutes);
 app.use("/api", callsRoutes)
 app.use("/api", postRoutes)
+// webhook route
+app.use("/api", webhookRoute)
 //testing and commiting
 app.get("/", (req, res) => res.send({ status: "Backend runing" }))
 app.set("trust proxy", 1)
@@ -116,30 +126,26 @@ server.listen(PORT, async () => {
 		// Testing Race Condition on wallet crediting with same user performing multiple transaction symultaneously
 		// Expected result is that each transaction is processed sequentially and wallet balance is correctly updated
 		// instead of being corrupted by concurrent updates.
-
 		// const creditResult1 = await walletService.creditWallet(newWallet.id, 10000, 0, reference1, "Initial wallet funding", { source: "system" })
 		// const creditResult2 = await walletService.creditWallet(newWallet.id, 10000, 0, reference2, "Initial wallet funding", { source: "system" })
 		// const creditResult3 = await walletService.debitWallet(newWallet.id, 5000, 100, reference3, "Initial wallet funding", { source: "system" })
-
 		// console.log("Single sequential transaction results")
 		// console.log("====================================")
 		// console.log(creditResult1)
 		// console.log(creditResult2)
 		// console.log(creditResult3)
 		// console.log("====================================")
-
-		// Lets procdues a parrel processing of the above transactions using Promise.allSettled
-		const [creditResultA, debitResultB, creditResultC, debitResultD] = await Promise.allSettled([
-			walletService.creditWallet(newWallet.id, 10000, 0, uniqueId(12, true), "Initial wallet funding", { source: "system" }),
-			walletService.debitWallet(newWallet.id, 5000, 100, uniqueId(12, true), "Initial wallet funding", { source: "system" }),
-			walletService.creditWallet(newWallet.id, 10000, 0, uniqueId(12, true), "Initial wallet funding", { source: "system" }),
-			walletService.debitWallet(newWallet.id, 5000, 100, uniqueId(12, true), "Initial wallet funding", { source: "system" }),
-		])
-
-		console.log("Parallel transaction results")
-		console.log(creditResultA)
-		console.log(debitResultB)
-		console.log(creditResultC)
-		console.log(debitResultD)
+		// Lets produce a parallel processing of the above transactions using Promise.allSettled
+		// const [creditResultA, debitResultB, creditResultC, debitResultD] = await Promise.allSettled([
+		// 	walletService.creditWallet(newWallet.id, 10000, 0, uniqueId(12, true), "Initial wallet funding", { source: "system" }),
+		// 	walletService.debitWallet(newWallet.id, 5000, 100, uniqueId(12, true), "Initial wallet funding", { source: "system" }),
+		// 	walletService.creditWallet(newWallet.id, 10000, 0, uniqueId(12, true), "Initial wallet funding", { source: "system" }),
+		// 	walletService.debitWallet(newWallet.id, 5000, 100, uniqueId(12, true), "Initial wallet funding", { source: "system" }),
+		// ])
+		// console.log("Parallel transaction results")
+		// console.log(creditResultA)
+		// console.log(debitResultB)
+		// console.log(creditResultC)
+		// console.log(debitResultD)
 	}
 })
