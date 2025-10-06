@@ -1,8 +1,41 @@
 const Post = require("../models/Post");
 const User = require("../models/User");
+// const createPost = async (req, res) => {
+//   try {
+//     const { type, content } = req.body;
+//     console.log("Incoming files:", req.files);
+//     console.log("Body content:", req.body);
+
+//     if (!content && (!req.files || req.files.length === 0)) {
+//       return res.status(400).json({ message: "Content or media is required." });
+//     }
+
+//     const media = (req.files || []).map((file) => ({
+//       url: file.path,
+//       type: file.mimetype.startsWith("image")
+//         ? "image"
+//         : file.mimetype.startsWith("video")
+//         ? "video"
+//         : "audio",
+//     }));
+
+//     const post = await Post.create({
+//       user: req.user.id,
+//       type,
+//       content,
+//       media,
+//     });
+
+//     res.status(201).json({ message: "Post created successfully", post });
+//   } catch (error) {
+//     console.error("Create Post Error:", error);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// };
 const createPost = async (req, res) => {
   try {
     const { type, content } = req.body;
+
     console.log("Incoming files:", req.files);
     console.log("Body content:", req.body);
 
@@ -10,28 +43,44 @@ const createPost = async (req, res) => {
       return res.status(400).json({ message: "Content or media is required." });
     }
 
-    const media = (req.files || []).map((file) => ({
-      url: file.path,
-      type: file.mimetype.startsWith("image")
-        ? "image"
-        : file.mimetype.startsWith("video")
-        ? "video"
-        : "audio",
-    }));
-
-    const post = await Post.create({
-      user: req.user.id,
-      type,
-      content,
-      media,
+    // Respond immediately so Heroku doesn't kill the request
+    res.status(202).json({
+      message: "Post upload in progress...",
+      note: "Media upload and save will complete in background.",
     });
 
-    res.status(201).json({ message: "Post created successfully", post });
+    // Continue processing in the background
+    (async () => {
+      try {
+        const media = (req.files || []).map((file) => ({
+          url: file.path,
+          type: file.mimetype.startsWith("image")
+            ? "image"
+            : file.mimetype.startsWith("video")
+            ? "video"
+            : "audio",
+        }));
+
+        const post = await Post.create({
+          user: req.user.id,
+          type,
+          content,
+          media,
+        });
+
+        console.log("✅ Post created successfully:", post._id);
+      } catch (err) {
+        console.error("❌ Error saving post after response:", err);
+      }
+    })();
   } catch (error) {
     console.error("Create Post Error:", error);
-    res.status(500).json({ message: "Server error" });
+    if (!res.headersSent) {
+      res.status(500).json({ message: "Server error" });
+    }
   }
 };
+
 const getPosts = async (req, res) => {
   try {
     const posts = await Post.find()
