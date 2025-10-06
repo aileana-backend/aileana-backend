@@ -41,7 +41,13 @@ const PostSchema = new mongoose.Schema(
         createdAt: { type: Date, default: Date.now },
       },
     ],
+    uploadStatus: {
+      type: String,
+      enum: ["processing", "completed", "failed"],
+      default: "processing",
+    },
   },
+
   { timestamps: true }
 );
 
