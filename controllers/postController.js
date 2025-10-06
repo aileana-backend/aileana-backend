@@ -3,6 +3,8 @@ const User = require("../models/User");
 const createPost = async (req, res) => {
   try {
     const { type, content } = req.body;
+    console.log("Incoming files:", req.files);
+    console.log("Body content:", req.body);
 
     if (!content && (!req.files || req.files.length === 0)) {
       return res.status(400).json({ message: "Content or media is required." });
