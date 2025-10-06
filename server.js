@@ -32,13 +32,6 @@ app.use(express.json());
 
 app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
-app.use((req, res, next) => {
-  res.setTimeout(25000, () => {
-    console.error(" Request timed out");
-    res.status(408).json({ message: "Request timed out" });
-  });
-  next();
-});
 
 // API routes
 app.use("/api", authRoutes);
