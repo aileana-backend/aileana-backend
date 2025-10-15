@@ -36,10 +36,7 @@ const { v4: uuidv4 } = require("uuid");
 // };
 const createPost = async (req, res) => {
   try {
-    console.log("createPost reached ✅");
-
     const { type, content } = req.body;
-    console.log("Body:", { type, hasContent: !!content });
 
     // Basic validation
     if (!content && (!req.files || req.files.length === 0)) {
@@ -99,8 +96,6 @@ const createPost = async (req, res) => {
               resource_type,
               "posts_media"
             );
-
-            console.log("Upload result:", result?.secure_url || result?.url);
 
             mediaArr.push({
               url: result.secure_url || result.url,

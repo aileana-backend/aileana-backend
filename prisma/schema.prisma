@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Wallet {
+  id                String        @id @default(cuid())
+  userId            String        @unique
+  walletAddress     String        @unique
+  walletAddressName String
+  walletAddressId   String
+  walletAddressTag  String
+  balance           String        @default("0.0")
+  status            WalletStatus  @default(Active)
+  isDeleted         Boolean       @default(false)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  Ledger            Ledger[]
+  Transactions      Transaction[]
+}
+
+model Transaction {
+  id                   String            @id @default(cuid())
+  userId               String
+  walletId             String
+  fees                 Float             @default(0.0)
+  amount               Float             @default(0.0)
+  totalAmount          Float             @default(0.0)
+  type                 TransactionType
+  flow                 TransactionFlow
+  status               TransactionStatus @default(Pending)
+  reference            String            @unique
+  description          String?
+  metadata             Json?
+  relatedTransactionId String?
+  isDeleted            Boolean           @default(false)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  Ledger               Ledger[]
+  Wallet               Wallet            @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, type], map: "idx_user_status_type")
+  @@index([walletId], map: "idx_wallet")
+  @@index([isDeleted, createdAt], map: "idx_deleted_createdAt")
+}
+
+model Ledger {
+  id            String      @id @default(cuid())
+  walletId      String
+  transactionId String
+  debit         Float       @default(0.0)
+  credit        Float       @default(0.0)
+  prevBalance   Float       @default(0.0)
+  currBalance   Float       @default(0.0)
+  isDeleted     Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  Transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  Wallet        Wallet      @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId, transactionId], map: "idx_ledger_walletId_transaction")
+  @@index([isDeleted, createdAt], map: "idx_ledger_deleted_createdAt")
+}
+
+enum TransactionFlow {
+  Debit
+  Credit
+}
+
+enum TransactionStatus {
+  Pending
+  Successful
+  Reversed
+  Failed
+}
+
+enum TransactionType {
+  Deposit
+  Withdrawal
+  Transfer
+  Payment
+  Refund
+}
+
+enum WalletStatus {
+  Active
+  Inactive
+  Suspended
+}

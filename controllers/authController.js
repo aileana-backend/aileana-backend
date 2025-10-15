@@ -6,12 +6,14 @@ const logActivity = require("../utils/activityLogger");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Store = require("../models/Store");
-const Wallet = require("../models/Wallet");
-const { createWallet } = require("../utils/onepipe");
+//const Wallet = require("../models/Wallet");
+const walletService = require("../services/wallet/wallet.service");
+
+//const { createWallet } = require("../utils/onepipe");
 const sendEmail = require("../utils/sendMail");
 
-const PROVIDER_CODE = process.env.ONEPIPE_PROVIDER_CODE || "FidelityVirtual";
-const PROVIDER_NAME = process.env.ONEPIPE_PROVIDER_NAME || "FidelityVirtual";
+//const PROVIDER_CODE = process.env.ONEPIPE_PROVIDER_CODE || "FidelityVirtual";
+//const PROVIDER_NAME = process.env.ONEPIPE_PROVIDER_NAME || "FidelityVirtual";
 
 const signup = async (req, res) => {
   try {
@@ -61,7 +63,6 @@ const signup = async (req, res) => {
           "Password must be at least 8 characters long, include uppercase, lowercase, number, and special character.",
       });
     }
-
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -90,6 +91,7 @@ const signup = async (req, res) => {
     // link store back to user
     newUser.store = store._id;
     await newUser.save();
+
     const subject = "Account verification OTP";
     const htmlContent = `
       <p>Hello ${newUser.first_name || "User"},</p>
@@ -100,31 +102,31 @@ const signup = async (req, res) => {
     `;
 
     // // Wallet payload for OnePipe
-    const walletUserData = {
-      userId: newUser._id,
-      //  customer_ref: `user_${user._id}`,
-      //  first_name,
-      //  middle_name,
-      //  last_name,
-      //  email,
-      //mobile_no: phone,
-      // provider_code: PROVIDER_CODE,
-      //  provider_name: PROVIDER_NAME,
-      //  account_type: "static",
-    };
-    // // Create wallet
-    // const walletResponse = await createWallet(walletUserData);
-    const wallet = new Wallet({
-      userId: newUser._id,
-    });
-    await wallet.save();
-    await logTransaction({
-      user: newUser._id,
-      wallet: wallet._id,
-      type: "wallet_created",
-      amount: 0,
-      currency: "naira",
-    });
+    // const walletUserData = {
+    //   userId: newUser._id,
+    //   //  customer_ref: `user_${user._id}`,
+    //   //  first_name,
+    //   //  middle_name,
+    //   //  last_name,
+    //   //  email,
+    //   //mobile_no: phone,
+    //   // provider_code: PROVIDER_CODE,
+    //   //  provider_name: PROVIDER_NAME,
+    //   //  account_type: "static",
+    // };
+    // // // Create wallet
+    // // const walletResponse = await createWallet(walletUserData);
+    // const wallet = new Wallet({
+    //   userId: newUser._id,
+    // });
+    // await wallet.save();
+    // await logTransaction({
+    //   user: newUser._id,
+    //   wallet: wallet._id,
+    //   type: "wallet_created",
+    //   amount: 0,
+    //   currency: "naira",
+    // });
     await logActivity({
       userId: newUser._id,
       action: "signup",
@@ -132,22 +134,15 @@ const signup = async (req, res) => {
       req,
     });
 
-    // if (walletResponse.status === "Successful") {
-    //   const existingWallet = await Wallet.findOne({
-    //     userId: walletUserData.userId,
-    //   });
-    //   if (!existingWallet) {
-    //     const wallet = new Wallet({
-    //       userId: newUser._id,
-    //       // externalId:
-    //       //   walletResponse.data?.provider_response?.account_number ||
-    //       //   walletResponse.data?.externalId,
-    //       // balance: 0,
-    //       // currency: walletResponse.data?.provider_response?.currency || "NGN",
-    //     });
-    //     await wallet.save();
-    //   }
-    // }
+    await walletService.createWallet(newUser._id, "NGN");
+
+    await logActivity({
+      userId: newUser._id,
+      action: "signup",
+      description: "New user signed up and OTP sent.",
+      req,
+    });
+
     // Generate token
     const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES_IN || "7d",

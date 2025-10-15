@@ -18,9 +18,13 @@ const callsRoutes = require("./routes/calls");
 const categoryRoutes = require("./routes/category");
 const postRoutes = require("./routes/post");
 const productRoutes = require("./routes/product");
+const webhookRoute = require("./routes/webhook");
 const { verifySocketToken } = require("./middleware/auth");
 const Message = require("./models/Message");
 const User = require("./models/User");
+//const monnifyService = require("./services/monnify/monnify.service");
+//const walletService = require("./wallet/services/wallet.service");
+const { uniqueId } = require("./utils/string.util");
 
 const app = express();
 const server = http.createServer(app);
@@ -42,6 +46,9 @@ app.use("/api", categoryRoutes);
 app.use("/api", productRoutes);
 app.use("/api", callsRoutes);
 app.use("/api", postRoutes);
+app.use("/api", authRoutes);
+// webhook route
+app.use("/api", webhookRoute);
 //testing and commiting
 app.get("/", (req, res) => res.send({ status: "Backend runing" }));
 app.set("trust proxy", 1);
