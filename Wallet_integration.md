@@ -1285,22 +1285,200 @@ ENCRYPTION_KEY=your_generated_key_here
 
 Required `.env` variables for wallet system:
 
+### `.env.example` Template
+
 ```env
-# Database
-DATABASE_URL="postgresql://user:password@localhost:5432/aileana"
-MONGODB_URI="mongodb://localhost:27017/aileana"
+# =============================================================================
+# APPLICATION CONFIGURATION
+# =============================================================================
+NODE_ENV=development
+PORT=3000
 
-# Encryption
-ENCRYPTION_KEY="your-32-byte-hex-key"
+# =============================================================================
+# DATABASE CONNECTIONS
+# =============================================================================
 
-# Monnify Integration
-MONNIFY_API_KEY="your_api_key"
-MONNIFY_SECRET_KEY="your_secret_key"
-MONNIFY_BASE_URL="https://sandbox.monnify.com" # or production URL
-MONNIFY_CONTRACT_CODE="your_contract_code"
+# PostgreSQL (Prisma) - Primary database for wallet system
+# Required for: Wallet, Transaction, Ledger tables
+# Format: postgresql://user:password@host:port/database?schema=public
+DATABASE_URL=
 
-# JWT
-JWT_SECRET="your_jwt_secret"
+# MongoDB - User authentication and legacy data
+# Required for: User model and authentication
+# Format: mongodb+srv://user:password@host/database?options
+MONGO_URI=
+
+# =============================================================================
+# WALLET ENCRYPTION
+# =============================================================================
+
+# AES-256-GCM encryption key for wallet balances
+# Required for: Encrypting/decrypting wallet balances
+# Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# IMPORTANT: Never change this key after wallets are created - all balances will become unreadable!
+ENCRYPTION_KEY=
+
+# =============================================================================
+# MONNIFY PAYMENT GATEWAY
+# =============================================================================
+
+# Monnify API credentials
+# Required for: Virtual account creation and webhook processing
+# Get from: https://monnify.com dashboard
+
+# API Key (starts with MK_TEST_ for sandbox, MK_PROD_ for production)
+MONNIFY_API_KEY=
+
+# Secret Key for HMAC-SHA512 webhook signature verification
+# CRITICAL: Used to verify webhook authenticity
+MONNIFY_SECRET_KEY=
+
+# Base URL for Monnify API
+# Sandbox: https://sandbox.monnify.com/api
+# Production: https://api.monnify.com
+MONNIFY_BASE_URL=
+
+# Your Monnify contract code (merchant identifier)
+MONNIFY_CONTRACT_CODE=
+
+# =============================================================================
+# AUTHENTICATION
+# =============================================================================
+
+# JWT secret for token generation and validation
+# Generate with: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+JWT_SECRET=
+
+# JWT token expiration time (e.g., 7d, 24h, 30m)
+JWT_EXPIRES_IN=7d
+
+# =============================================================================
+# OPTIONAL: EMAIL CONFIGURATION (for transaction notifications)
+# =============================================================================
+
+MAIL_HOST=
+MAIL_PORT=
+MAILTRAP_USER=
+MAILTRAP_PASS=
+
+# =============================================================================
+# OPTIONAL: GOOGLE OAUTH (if using social authentication)
+# =============================================================================
+
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_CALLBACK_URL=
+GOOGLE_EMAIL=
+GOOGLE_APP_PASSWORD=
+
+# =============================================================================
+# OPTIONAL: ONEPIPE (alternative payment provider - can be ignored)
+# =============================================================================
+
+ONEPIPE_API_KEY=
+ONEPIPE_BASE_URL=
+ONEPIPE_API_SECRET=
+ONEPIPE_APP_CODE=
+ONEPIPE_PROVIDER_CODE=
+ONEPIPE_PROVIDER_NAME=
+ONEPIPE_MOCK_MODE=true
+```
+
+### Critical Environment Variables Explained
+
+| Variable                  | Required       | Description                                | Example                               |
+| ------------------------- | -------------- | ------------------------------------------ | ------------------------------------- |
+| **DATABASE_URL**          | ✅ Yes         | PostgreSQL connection string for Prisma    | `postgresql://user:pass@host:5432/db` |
+| **MONGO_URI**             | ✅ Yes         | MongoDB connection for user authentication | `mongodb+srv://user:pass@host/db`     |
+| **ENCRYPTION_KEY**        | ✅ Yes         | 32-byte hex key for balance encryption     | Generated via crypto.randomBytes(32)  |
+| **MONNIFY_API_KEY**       | ✅ Yes         | Monnify API authentication key             | `MK_TEST_XXXXXX` or `MK_PROD_XXXXXX`  |
+| **MONNIFY_SECRET_KEY**    | ✅ Yes         | Webhook signature verification secret      | From Monnify dashboard                |
+| **MONNIFY_BASE_URL**      | ✅ Yes         | Monnify API endpoint                       | `https://sandbox.monnify.com/api`     |
+| **MONNIFY_CONTRACT_CODE** | ✅ Yes         | Monnify merchant contract code             | From Monnify dashboard                |
+| **JWT_SECRET**            | ✅ Yes         | JWT token signing secret                   | Generated secure random string        |
+| **NODE_ENV**              | ⚠️ Recommended | Environment (development/production)       | `production`                          |
+| **PORT**                  | ⚠️ Recommended | Server port                                | `3000`                                |
+
+### Security Best Practices
+
+1. **Never commit `.env` to version control**
+
+   ```bash
+   # Add to .gitignore
+   .env
+   .env.local
+   .env.*.local
+   ```
+
+2. **Generate secure keys**
+
+   ```bash
+   # Generate ENCRYPTION_KEY (32 bytes = 64 hex chars)
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+   # Generate JWT_SECRET (64 bytes = 128 hex chars)
+   node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+   ```
+
+3. **Use different keys for each environment**
+
+   - Development: `.env.development`
+   - Staging: `.env.staging`
+   - Production: `.env.production`
+
+4. **Rotate secrets periodically**
+   - Monnify keys: Every 90 days
+   - JWT secret: Every 180 days (requires re-authentication of all users)
+   - **NEVER** rotate ENCRYPTION_KEY if wallets exist
+
+### Environment-Specific Configuration
+
+#### Development Environment
+
+```env
+NODE_ENV=development
+MONNIFY_BASE_URL=https://sandbox.monnify.com/api
+MONNIFY_API_KEY=MK_TEST_XXXXXX
+DATABASE_URL=postgresql://localhost:5432/aileana_dev
+```
+
+#### Production Environment
+
+```env
+NODE_ENV=production
+MONNIFY_BASE_URL=https://api.monnify.com
+MONNIFY_API_KEY=MK_PROD_XXXXXX
+DATABASE_URL=postgresql://prod-host:5432/aileana_prod?sslmode=require
+```
+
+### Validating Environment Variables
+
+Create a validation script `scripts/validate-env.js`:
+
+```javascript
+const requiredVars = ["DATABASE_URL", "MONGO_URI", "ENCRYPTION_KEY", "MONNIFY_API_KEY", "MONNIFY_SECRET_KEY", "MONNIFY_BASE_URL", "MONNIFY_CONTRACT_CODE", "JWT_SECRET"]
+
+const missing = requiredVars.filter((varName) => !process.env[varName])
+
+if (missing.length > 0) {
+	console.error("❌ Missing required environment variables:")
+	missing.forEach((varName) => console.error(`   - ${varName}`))
+	process.exit(1)
+}
+
+// Validate ENCRYPTION_KEY length (must be 64 hex characters = 32 bytes)
+if (process.env.ENCRYPTION_KEY.length !== 64) {
+	console.error("❌ ENCRYPTION_KEY must be 64 hex characters (32 bytes)")
+	process.exit(1)
+}
+
+console.log("✅ All required environment variables are set")
+```
+
+Run validation:
+
+```bash
+node scripts/validate-env.js
 ```
 
 ---
