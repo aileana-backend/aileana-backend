@@ -34,6 +34,26 @@ connectDB();
 app.use(cors());
 app.use(express.json());
 
+// --- 1. DEFINE HELPERS FIRST ---
+function getLoggerForStatusCode(statusCode) {
+  if (statusCode >= 500) return console.error.bind(console);
+  if (statusCode >= 400) return console.warn.bind(console);
+  return console.info.bind(console);
+}
+
+// --- 2. ADD THE MIDDLEWARE HERE (BEFORE ROUTES) ---
+app.use((req, res, next) => {
+  res.on("finish", () => {
+    const logger = getLoggerForStatusCode(res.statusCode);
+    logger(
+      `[${new Date().toISOString()}] ${req.method} ${req.originalUrl} ${JSON.stringify(
+        req.body || {},
+      )} ${res.statusCode}`,
+    );
+  });
+  next();
+});
+
 app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
 
@@ -124,4 +144,5 @@ app.use((req, res, next) => {
 app.use("/api", messagesRoutes);
 
 const PORT = process.env.PORT || 4000;
+console.log("PORT", PORT);
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

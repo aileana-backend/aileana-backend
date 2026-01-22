@@ -1,3 +1,4 @@
+const { success } = require("zod");
 const Message = require("../models/Message");
 const User = require("../models/User");
 
@@ -78,11 +79,11 @@ const getUsersChatHistoryForAi = async (req, res) => {
       return res.status(404).json({ msg: "One or both users not found" });
     }
 
-    if (!u1.smartReplyEnabled || !u2.smartReplyEnabled) {
-      return res.status(403).json({
-        msg: "Smart reply not enabled by both users",
-      });
-    }
+    // if (!u1.smartReplyEnabled || !u2.smartReplyEnabled) {
+    //   return res.status(403).json({
+    //     msg: "Smart reply not enabled by both users",
+    //   });
+    // }
 
     const messages = await Message.find({
       $or: [
@@ -91,7 +92,11 @@ const getUsersChatHistoryForAi = async (req, res) => {
       ],
     }).sort({ timestamp: 1 });
 
-    res.json({ messages });
+    //return res.json({ messages });
+    return res.status(200).json({
+      success: true,
+      data: messages,
+    });
   } catch (err) {
     console.error("getUsersChatHistoryForAi error:", err);
     res.status(500).json({ msg: "Server error" });

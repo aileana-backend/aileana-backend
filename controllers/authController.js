@@ -15,7 +15,251 @@ const sendEmail = require("../utils/sendMail");
 //const PROVIDER_CODE = process.env.ONEPIPE_PROVIDER_CODE || "FidelityVirtual";
 //const PROVIDER_NAME = process.env.ONEPIPE_PROVIDER_NAME || "FidelityVirtual";
 
+// const signup = async (req, res) => {
+//   console.log("signup request body:", req.body);
+//   try {
+//     const {
+//       username,
+//       first_name,
+//       middle_name,
+//       last_name,
+//       email,
+//       dob,
+//       gender,
+//       password,
+//       biometricPreference,
+//       termsAccepted,
+//     } = req.body;
+
+//     if (!termsAccepted) {
+//       return res
+//         .status(400)
+//         .json({ error: "You must accept the Terms & Conditions to register." });
+//     }
+
+//     if (!username || username.length < 3) {
+//       return res
+//         .status(400)
+//         .json({ error: "Username must be at least 3 characters long." });
+//     }
+//     const existingUsername = await User.findOne({ username });
+//     if (existingUsername) {
+//       return res.status(400).json({ msg: "Username already taken." });
+//     }
+
+//     const existing = await User.findOne({ email });
+//     if (existing) {
+//       return res.status(400).json({ msg: "Email already registered" });
+//     }
+
+//     if (!validator.isEmail(email)) {
+//       return res.status(400).json({ error: "Invalid email format." });
+//     }
+
+//     const passwordRegex =
+//       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+//     if (!passwordRegex.test(password)) {
+//       return res.status(400).json({
+//         error:
+//           "Password must be at least 8 characters long, include uppercase, lowercase, number, and special character.",
+//       });
+//     }
+//     const salt = await bcrypt.genSalt(10);
+//     const hashedPassword = await bcrypt.hash(password, salt);
+
+//     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+//     const user = new User({
+//       username,
+//       first_name,
+//       middle_name,
+//       last_name,
+//       email,
+//       dob,
+//       gender,
+//       password: hashedPassword,
+//       biometricPreference: biometricPreference || "None",
+//       termsAccepted: true,
+//       otp,
+//       otpType: "signup",
+//       otpExpires: Date.now() + 10 * 60 * 1000,
+//     });
+
+//     const newUser = await user.save();
+//     // create empty store for user
+//     const store = new Store({ owner: user._id });
+//     await store.save();
+
+//     // link store back to user
+//     newUser.store = store._id;
+//     await newUser.save();
+
+//     const subject = "Account verification OTP";
+//     const htmlContent = `
+//       <p>Hello ${newUser.first_name || "User"},</p>
+//       <p>Please use the OTP Code below to verify your account:</p>
+//       <p><b>${otp}</b></p>
+//       <p>If you didn’t request this, you can ignore this email.</p>
+//       <p>Link expires in 1 hour.</p>
+//     `;
+
+//     // // Wallet payload for OnePipe
+//     // const walletUserData = {
+//     //   userId: newUser._id,
+//     //   //  customer_ref: `user_${user._id}`,
+//     //   //  first_name,
+//     //   //  middle_name,
+//     //   //  last_name,
+//     //   //  email,
+//     //   //mobile_no: phone,
+//     //   // provider_code: PROVIDER_CODE,
+//     //   //  provider_name: PROVIDER_NAME,
+//     //   //  account_type: "static",
+//     // };
+//     // // // Create wallet
+//     // // const walletResponse = await createWallet(walletUserData);
+//     // const wallet = new Wallet({
+//     //   userId: newUser._id,
+//     // });
+//     // await wallet.save();
+//     // await logTransaction({
+//     //   user: newUser._id,
+//     //   wallet: wallet._id,
+//     //   type: "wallet_created",
+//     //   amount: 0,
+//     //   currency: "naira",
+//     // });
+//     await logActivity({
+//       userId: newUser._id,
+//       action: "signup",
+//       description: "New user signed up and OTP sent.",
+//       req,
+//     });
+
+//     await walletService.createWallet(newUser._id, "NGN");
+
+//     await logActivity({
+//       userId: newUser._id,
+//       action: "signup",
+//       description: "New user signed up and OTP sent.",
+//       req,
+//     });
+
+//     // Generate token
+//     const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
+//       expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+//     });
+
+//     try {
+//       await sendEmail(user.email, subject, htmlContent);
+//     } catch (emailError) {
+//       console.error("Email sending failed:", emailError);
+//     }
+
+//     res.status(201).json({
+//       token,
+//       newUser,
+//     });
+//   } catch (err) {
+//     console.error("Signup error:", err);
+//     res.status(500).json({ msg: "Server error" });
+//   }
+// };
+
+const mongoose = require("mongoose");
+
+const generateOTPTemplate = (firstName, otp) => {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    body {
+      margin: 0; padding: 0; background-color: #f4f7fa;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .wrapper { width: 100%; padding: 40px 10px; background-color: #f4f7fa; }
+    .card {
+      max-width: 500px; margin: 0 auto; background: #ffffff;
+      border-radius: 20px; overflow: hidden;
+      box-shadow: 0 15px 35px rgba(30, 58, 138, 0.08);
+    }
+    .header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+      padding: 40px 20px; text-align: center;
+    }
+    .logo { max-width: 140px; filter: brightness(0) invert(1); }
+    .content { padding: 48px 40px; text-align: center; }
+    .greeting {
+      font-size: 24px; font-weight: 700; color: #1e293b; margin-bottom: 16px;
+    }
+    .text {
+      font-size: 16px; line-height: 1.6; color: #64748b; margin-bottom: 32px;
+    }
+    .otp-box {
+      background: #f1f5f9; border-radius: 16px;
+      padding: 24px; margin: 0 auto 32px;
+      border: 2px solid #e2e8f0; display: inline-block;
+    }
+    .otp {
+      font-size: 42px; font-weight: 800; letter-spacing: 8px;
+      color: #1e3a8a; font-family: 'Courier New', Courier, monospace;
+    }
+    .expiry {
+      font-size: 13px; color: #94a3b8; font-weight: 500;
+    }
+    .divider { height: 1px; background: #f1f5f9; margin: 40px 0; }
+    .footer {
+      padding-bottom: 40px; text-align: center;
+      font-size: 12px; color: #94a3b8; line-height: 1.8;
+    }
+    .footer strong { color: #475569; }
+    @media (max-width: 480px) {
+      .content { padding: 40px 24px; }
+      .otp { font-size: 34px; letter-spacing: 5px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="header">
+        <img src="https://your-domain.com/white-logo.png" alt="AILEANA" class="logo" />
+      </div>
+      <div class="content">
+        <div class="greeting">Hi ${firstName || "there"}!</div>
+        <div class="text">
+          Welcome to the future of commerce. Use the secure code below to verify your account and get started with <strong>AILEANA</strong>.
+        </div>
+        <div class="otp-box">
+          <div class="otp">${otp}</div>
+        </div>
+        <div class="expiry">
+          Security Note: This code will expire in 10 minutes.
+        </div>
+        <div class="divider"></div>
+        <div style="font-size: 13px; color: #94a3b8;">
+          Didn't request this? Please ignore this email or contact support.
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      © 2026 <strong>AILEANA</strong><br/>
+      Smart Commerce • Socially Connected • AI-Driven<br/>
+      Lagos • London • Toronto
+    </div>
+  </div>
+</body>
+</html>
+`;
+};
+
 const signup = async (req, res) => {
+  // Start a MongoDB Session
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const {
       username,
@@ -30,137 +274,84 @@ const signup = async (req, res) => {
       termsAccepted,
     } = req.body;
 
-    if (!termsAccepted) {
-      return res
-        .status(400)
-        .json({ error: "You must accept the Terms & Conditions to register." });
-    }
+    // --- VALIDATIONS (Keep these outside the transaction for speed) ---
+    if (!termsAccepted)
+      throw new Error("You must accept the Terms & Conditions.");
+    if (!username || username.length < 3)
+      throw new Error("Username too short.");
 
-    if (!username || username.length < 3) {
-      return res
-        .status(400)
-        .json({ error: "Username must be at least 3 characters long." });
-    }
-    const existingUsername = await User.findOne({ username });
-    if (existingUsername) {
-      return res.status(400).json({ msg: "Username already taken." });
-    }
+    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    if (existingUser) throw new Error("Email or Username already exists.");
 
-    const existing = await User.findOne({ email });
-    if (existing) {
-      return res.status(400).json({ msg: "Email already registered" });
-    }
-
-    if (!validator.isEmail(email)) {
-      return res.status(400).json({ error: "Invalid email format." });
-    }
-
-    const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(password)) {
-      return res.status(400).json({
-        error:
-          "Password must be at least 8 characters long, include uppercase, lowercase, number, and special character.",
-      });
-    }
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const user = new User({
-      username,
-      first_name,
-      middle_name,
-      last_name,
-      email,
-      dob,
-      gender,
-      password: hashedPassword,
-      biometricPreference: biometricPreference || "None",
-      termsAccepted: true,
-      otp,
-      otpType: "signup",
-      otpExpires: Date.now() + 10 * 60 * 1000,
-    });
 
-    const newUser = await user.save();
-    // create empty store for user
-    const store = new Store({ owner: user._id });
-    await store.save();
+    // --- DATABASE OPERATIONS (Must pass { session }) ---
 
-    // link store back to user
+    // 1. Create User
+    const [newUser] = await User.create(
+      [
+        {
+          username,
+          first_name,
+          middle_name,
+          last_name,
+          email,
+          dob,
+          gender,
+          password: hashedPassword,
+          biometricPreference: biometricPreference || "None",
+          termsAccepted: true,
+          otp,
+          otpType: "signup",
+          otpExpires: Date.now() + 10 * 60 * 1000,
+        },
+      ],
+      { session },
+    );
+
+    // 2. Create Store
+    const [store] = await Store.create([{ owner: newUser._id }], { session });
+
+    // 3. Link Store to User
     newUser.store = store._id;
-    await newUser.save();
+    // await newUser.save({ session });
+
+    // 4. Create Wallet (Ensure your service supports sessions)
+    //await walletService.createWallet(newUser._id, "NGN", { session });
+
+    // 5. Log Activity
+    await logActivity(
+      {
+        userId: newUser._id,
+        action: "signup",
+        description: "User registered successfully.",
+        req,
+      },
+      { session },
+    );
 
     const subject = "Account verification OTP";
-    const htmlContent = `
-      <p>Hello ${newUser.first_name || "User"},</p>
-      <p>Please use the OTP Code below to verify your account:</p>
-      <p><b>${otp}</b></p>
-      <p>If you didn’t request this, you can ignore this email.</p>
-      <p>Link expires in 1 hour.</p>
-    `;
+    const htmlContent = generateOTPTemplate(newUser.first_name, otp);
 
-    // // Wallet payload for OnePipe
-    // const walletUserData = {
-    //   userId: newUser._id,
-    //   //  customer_ref: `user_${user._id}`,
-    //   //  first_name,
-    //   //  middle_name,
-    //   //  last_name,
-    //   //  email,
-    //   //mobile_no: phone,
-    //   // provider_code: PROVIDER_CODE,
-    //   //  provider_name: PROVIDER_NAME,
-    //   //  account_type: "static",
-    // };
-    // // // Create wallet
-    // // const walletResponse = await createWallet(walletUserData);
-    // const wallet = new Wallet({
-    //   userId: newUser._id,
-    // });
-    // await wallet.save();
-    // await logTransaction({
-    //   user: newUser._id,
-    //   wallet: wallet._id,
-    //   type: "wallet_created",
-    //   amount: 0,
-    //   currency: "naira",
-    // });
-    await logActivity({
-      userId: newUser._id,
-      action: "signup",
-      description: "New user signed up and OTP sent.",
-      req,
-    });
+    // Send email
+    await sendEmail(newUser.email, subject, htmlContent);
+    await session.commitTransaction();
 
-    await walletService.createWallet(newUser._id, "NGN");
-
-    await logActivity({
-      userId: newUser._id,
-      action: "signup",
-      description: "New user signed up and OTP sent.",
-      req,
-    });
-
-    // Generate token
     const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES_IN || "7d",
     });
 
-    try {
-      await sendEmail(user.email, subject, htmlContent);
-    } catch (emailError) {
-      console.error("Email sending failed:", emailError);
-    }
-
-    res.status(201).json({
-      token,
-      newUser,
-    });
+    res.status(201).json({ token, newUser });
   } catch (err) {
-    console.error("Signup error:", err);
-    res.status(500).json({ msg: "Server error" });
+    // If ANY error happens, undo everything
+    await session.abortTransaction();
+    console.error("Signup error - Transaction Aborted:", err);
+    res.status(400).json({ error: err.message || "Server error" });
+  } finally {
+    // Always end the session
+    session.endSession();
   }
 };
 
@@ -206,7 +397,7 @@ const login = async (req, res) => {
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES_IN || "7d",
     });
-    console.log(user._id);
+
     await logActivity({
       userId: user._id,
       action: "login",
@@ -726,7 +917,7 @@ const toggleSmartReply = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       userId,
       { smartReplyEnabled: enabled },
-      { new: true, select: "username email smartReplyEnabled" }
+      { new: true, select: "username email smartReplyEnabled" },
     );
 
     if (!user) {
@@ -834,7 +1025,7 @@ const updateProfile = async (req, res) => {
 const getOnlineUsers = async (req, res) => {
   try {
     const users = await User.find({ isOnline: true }).select(
-      "first_name last_name username email isOnline lastSeen"
+      "first_name last_name username email isOnline lastSeen",
     );
     res.json(users);
   } catch (err) {

@@ -16,8 +16,8 @@ const MessageSchema = new mongoose.Schema(
       type: String,
       required: true,
 
-      set: (msg) => (msg ? encrypt(msg) : msg),
-      get: (msg) => (msg ? decrypt(msg) : msg),
+      // set: (msg) => (msg ? encrypt(msg) : msg),
+      // get: (msg) => (msg ? decrypt(msg) : msg),
     },
     read: {
       type: Boolean,
