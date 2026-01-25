@@ -131,7 +131,7 @@ const getConversations = async (req, res) => {
             avatar: "$userDetails.avatar",
           },
           lastMessage: {
-            text: "$lastMessage.content",
+            content: "$lastMessage.content",
             createdAt: "$lastMessage.createdAt",
             sender: "$lastMessage.sender",
             receiver: "$lastMessage.receiver",
