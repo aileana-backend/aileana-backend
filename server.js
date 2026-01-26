@@ -93,28 +93,55 @@ io.on("connection", (socket) => {
   // join room for user
   socket.join(`user_${userId}`);
 
-  socket.on("private_message", async (data) => {
-    try {
-      const { receiver, content } = data;
-      if (!receiver || !content) {
-        return socket.emit("error", { msg: "Recipient and content required" });
-      }
-      const msg = new Message({
-        sender: userId,
-        receiver,
-        content,
-      });
-      await msg.save();
+  // socket.on("private_message", async (data) => {
+  //   try {
+  //     const { receiver, content } = data;
+  //     if (!receiver || !content) {
+  //       return socket.emit("error", { msg: "Recipient and content required" });
+  //     }
+  //     const msg = new Message({
+  //       sender: userId,
+  //       receiver,
+  //       content,
+  //     });
+  //     await msg.save();
 
-      // Emit to receiver and sender
-      io.to(`user_${receiver}`).emit("private_message", msg);
-      //for the sender only
-      socket.emit("private_message", msg);
-    } catch (err) {
-      console.error("socket message error", err);
-      socket.emit("error", { msg: "Message sending  faild" });
+  //     // Emit to receiver and sender
+  //     io.to(`user_${receiver}`).emit("private_message", msg);
+  //     //for the sender only
+  //     socket.emit("private_message", msg);
+  //   } catch (err) {
+  //     console.error("socket message error", err);
+  //     socket.emit("error", { msg: "Message sending  faild" });
+  //   }
+  // });
+
+  socket.on("private_message", async (data) => {
+  try {
+    const { receiver, content } = data;
+
+    if (!receiver || !content) {
+      return socket.emit("error", { msg: "Recipient and content required" });
     }
-  });
+
+    const msg = new Message({
+      sender: userId,
+      receiver,
+      content,
+    });
+
+    await msg.save();
+
+    // Emit once per user via rooms
+    io.to(`user_${receiver}`).emit("private_message", msg);
+    io.to(`user_${userId}`).emit("private_message", msg);
+
+  } catch (err) {
+    console.error("socket message error", err);
+    socket.emit("error", { msg: "Message sending failed" });
+  }
+});
+
   socket.on("message_read", async (messageId) => {
     try {
       await Message.findByIdAndUpdate(messageId, { read: true });
