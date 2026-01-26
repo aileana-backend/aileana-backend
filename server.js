@@ -34,6 +34,28 @@ connectDB();
 app.use(cors());
 app.use(express.json());
 
+function sanitizeBody(body = {}) {
+  const SENSITIVE_FIELDS = [
+    "password",
+    "confirmPassword",
+    "pin",
+    "otp",
+    "token",
+    "accessToken",
+    "refreshToken",
+  ];
+
+  const sanitized = { ...body };
+
+  for (const field of SENSITIVE_FIELDS) {
+    if (sanitized[field]) {
+      sanitized[field] = "********";
+    }
+  }
+
+  return sanitized;
+}
+
 // --- 1. DEFINE HELPERS FIRST ---
 function getLoggerForStatusCode(statusCode) {
   if (statusCode >= 500) return console.error.bind(console);
@@ -45,12 +67,16 @@ function getLoggerForStatusCode(statusCode) {
 app.use((req, res, next) => {
   res.on("finish", () => {
     const logger = getLoggerForStatusCode(res.statusCode);
+
+    const safeBody = sanitizeBody(req.body);
+
     logger(
-      `[${new Date().toISOString()}] ${req.method} ${req.originalUrl} ${JSON.stringify(
-        req.body || {},
-      )} ${res.statusCode}`,
+      `[${new Date().toISOString()}] ${req.method} ${
+        req.originalUrl
+      } ${JSON.stringify(safeBody)} ${res.statusCode}`,
     );
   });
+
   next();
 });
 
@@ -117,30 +143,29 @@ io.on("connection", (socket) => {
   // });
 
   socket.on("private_message", async (data) => {
-  try {
-    const { receiver, content } = data;
+    try {
+      const { receiver, content } = data;
 
-    if (!receiver || !content) {
-      return socket.emit("error", { msg: "Recipient and content required" });
+      if (!receiver || !content) {
+        return socket.emit("error", { msg: "Recipient and content required" });
+      }
+
+      const msg = new Message({
+        sender: userId,
+        receiver,
+        content,
+      });
+
+      await msg.save();
+
+      // Emit once per user via rooms
+      io.to(`user_${receiver}`).emit("private_message", msg);
+      io.to(`user_${userId}`).emit("private_message", msg);
+    } catch (err) {
+      console.error("socket message error", err);
+      socket.emit("error", { msg: "Message sending failed" });
     }
-
-    const msg = new Message({
-      sender: userId,
-      receiver,
-      content,
-    });
-
-    await msg.save();
-
-    // Emit once per user via rooms
-    io.to(`user_${receiver}`).emit("private_message", msg);
-    io.to(`user_${userId}`).emit("private_message", msg);
-
-  } catch (err) {
-    console.error("socket message error", err);
-    socket.emit("error", { msg: "Message sending failed" });
-  }
-});
+  });
 
   socket.on("message_read", async (messageId) => {
     try {
