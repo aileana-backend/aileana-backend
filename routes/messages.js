@@ -12,6 +12,8 @@ router.get("/conversations", auth, getConversations);
 
 router.get("/messages/:userId", auth, getChatHistory);
 router.get("/messages/ai/:user1/:user2", auth, getUsersChatHistoryForAi);
+
+
 router.post("/messages", auth, async (req, res) => {
   try {
     const { receiver, content } = req.body;
