@@ -26,7 +26,7 @@ router.post("/messages", auth, async (req, res) => {
     await msg.save();
 
     // emit in real-time too
-    req.io.to(`user_${receiver}`).emit("private_message", msg);
+    //req.io.to(`user_${receiver}`).emit("private_message", msg);
 
     return res.json(msg);
   } catch (err) {
