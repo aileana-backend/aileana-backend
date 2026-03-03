@@ -42,6 +42,8 @@ router.post("/bio-login", biometricLogin);
 router.post("/request-forgot-password", forgotPassword);
 router.post("/verify-forgot-password-otp", verifyForgetPasswordOtp);
 router.post("/reset-forgot-password", resetForgotPassword);
+//router.put("/profile", auth, updateUserProfile);
+// router.post("/forgot-password", forgotPassword);
 router.put("/profile", auth, updateProfile);
 // router.post("/reset-password", resetPassword);
 router.post("/change-password", auth, changePassword);

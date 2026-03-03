@@ -8,10 +8,10 @@ const passport = require("passport");
 require("./config/passport");
 const { Server } = require("socket.io");
 const connectDB = require("./config/db");
-
 const authRoutes = require("./routes/auth");
 const profileRoutes = require("./routes/profile");
 const walletRoutes = require("./routes/wallet");
+const tradebitsRoutes = require("./routes/tradebits");
 const messagesRoutes = require("./routes/messages");
 const storeRoutes = require("./routes/store");
 const callsRoutes = require("./routes/calls");
@@ -93,11 +93,17 @@ app.use("/api", productRoutes);
 app.use("/api", callsRoutes);
 app.use("/api", postRoutes);
 app.use("/api", authRoutes);
+<<<<<<< HEAD
+=======
+app.use("/api", tradebitsRoutes);
+>>>>>>> payment
 // webhook route
 app.use("/api", webhookRoute);
 //testing and commiting
 app.get("/", (req, res) => res.send({ status: "Backend runing" }));
 app.set("trust proxy", 1);
+
+//app.use(errorHandler);
 
 const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] },

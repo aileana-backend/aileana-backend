@@ -1,11 +1,40 @@
-const User = require("../models/User");
+const knex = require("../config/pg");
 
 const getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select("-password");
+    const user = await knex("users")
+      .where({ id: req.user.id })
+      .select(
+        "id",
+        "first_name",
+        "middle_name",
+        "last_name",
+        "username",
+        "email",
+        "dob",
+        "gender",
+        "phone_number",
+        "address",
+        "city",
+        "state",
+        "biometric_preference",
+        "status",
+        "verified",
+        "is_online",
+        "last_seen",
+        "terms_accepted",
+        "smart_reply_enabled",
+        "kyc_completed",
+        "kyc_status",
+        "created_at",
+        "updated_at",
+      )
+      .first();
+
     if (!user) {
       return res.status(404).json({ msg: "User not found" });
     }
+
     res.json(user);
   } catch (err) {
     console.error("Get profile error:", err);
@@ -13,38 +42,55 @@ const getProfile = async (req, res) => {
   }
 };
 
-// Update logged-in user profile
 const updateProfile = async (req, res) => {
   try {
     const allowedFields = [
-      "firstname",
-      "middlename",
-      "surname",
-      "name",
-      "phone",
-      "avatar",
+      "first_name",
+      "middle_name",
+      "last_name",
+      "phone_number",
       "dob",
       "gender",
-      "title",
-      "address_line_1",
-      "address_line_2",
+      "address",
       "city",
       "state",
-      "country",
     ];
 
-    // Filter only allowed fields from req.body
-    const updates = {};
+    const updates = { updated_at: new Date() };
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
         updates[field] = req.body[field];
       }
     }
 
-    const user = await User.findByIdAndUpdate(req.user._id, updates, {
-      new: true,
-      runValidators: true,
-    }).select("-password");
+    const [user] = await knex("users")
+      .where({ id: req.user.id })
+      .update(updates)
+      .returning([
+        "id",
+        "first_name",
+        "middle_name",
+        "last_name",
+        "username",
+        "email",
+        "dob",
+        "gender",
+        "phone_number",
+        "address",
+        "city",
+        "state",
+        "biometric_preference",
+        "status",
+        "verified",
+        "is_online",
+        "last_seen",
+        "terms_accepted",
+        "smart_reply_enabled",
+        "kyc_completed",
+        "kyc_status",
+        "created_at",
+        "updated_at",
+      ]);
 
     if (!user) {
       return res.status(404).json({ msg: "User not found" });

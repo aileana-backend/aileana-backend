@@ -6,167 +6,9 @@ const logActivity = require("../utils/activityLogger");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Store = require("../models/Store");
-//const Wallet = require("../models/Wallet");
+const knex = require("../config/pg");
 const walletService = require("../services/wallet/wallet.service");
-
-//const { createWallet } = require("../utils/onepipe");
 const sendEmail = require("../utils/sendMail");
-
-//const PROVIDER_CODE = process.env.ONEPIPE_PROVIDER_CODE || "FidelityVirtual";
-//const PROVIDER_NAME = process.env.ONEPIPE_PROVIDER_NAME || "FidelityVirtual";
-
-// const signup = async (req, res) => {
-//   console.log("signup request body:", req.body);
-//   try {
-//     const {
-//       username,
-//       first_name,
-//       middle_name,
-//       last_name,
-//       email,
-//       dob,
-//       gender,
-//       password,
-//       biometricPreference,
-//       termsAccepted,
-//     } = req.body;
-
-//     if (!termsAccepted) {
-//       return res
-//         .status(400)
-//         .json({ error: "You must accept the Terms & Conditions to register." });
-//     }
-
-//     if (!username || username.length < 3) {
-//       return res
-//         .status(400)
-//         .json({ error: "Username must be at least 3 characters long." });
-//     }
-//     const existingUsername = await User.findOne({ username });
-//     if (existingUsername) {
-//       return res.status(400).json({ msg: "Username already taken." });
-//     }
-
-//     const existing = await User.findOne({ email });
-//     if (existing) {
-//       return res.status(400).json({ msg: "Email already registered" });
-//     }
-
-//     if (!validator.isEmail(email)) {
-//       return res.status(400).json({ error: "Invalid email format." });
-//     }
-
-//     const passwordRegex =
-//       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-//     if (!passwordRegex.test(password)) {
-//       return res.status(400).json({
-//         error:
-//           "Password must be at least 8 characters long, include uppercase, lowercase, number, and special character.",
-//       });
-//     }
-//     const salt = await bcrypt.genSalt(10);
-//     const hashedPassword = await bcrypt.hash(password, salt);
-
-//     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-//     const user = new User({
-//       username,
-//       first_name,
-//       middle_name,
-//       last_name,
-//       email,
-//       dob,
-//       gender,
-//       password: hashedPassword,
-//       biometricPreference: biometricPreference || "None",
-//       termsAccepted: true,
-//       otp,
-//       otpType: "signup",
-//       otpExpires: Date.now() + 10 * 60 * 1000,
-//     });
-
-//     const newUser = await user.save();
-//     // create empty store for user
-//     const store = new Store({ owner: user._id });
-//     await store.save();
-
-//     // link store back to user
-//     newUser.store = store._id;
-//     await newUser.save();
-
-//     const subject = "Account verification OTP";
-//     const htmlContent = `
-//       <p>Hello ${newUser.first_name || "User"},</p>
-//       <p>Please use the OTP Code below to verify your account:</p>
-//       <p><b>${otp}</b></p>
-//       <p>If you didn’t request this, you can ignore this email.</p>
-//       <p>Link expires in 1 hour.</p>
-//     `;
-
-//     // // Wallet payload for OnePipe
-//     // const walletUserData = {
-//     //   userId: newUser._id,
-//     //   //  customer_ref: `user_${user._id}`,
-//     //   //  first_name,
-//     //   //  middle_name,
-//     //   //  last_name,
-//     //   //  email,
-//     //   //mobile_no: phone,
-//     //   // provider_code: PROVIDER_CODE,
-//     //   //  provider_name: PROVIDER_NAME,
-//     //   //  account_type: "static",
-//     // };
-//     // // // Create wallet
-//     // // const walletResponse = await createWallet(walletUserData);
-//     // const wallet = new Wallet({
-//     //   userId: newUser._id,
-//     // });
-//     // await wallet.save();
-//     // await logTransaction({
-//     //   user: newUser._id,
-//     //   wallet: wallet._id,
-//     //   type: "wallet_created",
-//     //   amount: 0,
-//     //   currency: "naira",
-//     // });
-//     await logActivity({
-//       userId: newUser._id,
-//       action: "signup",
-//       description: "New user signed up and OTP sent.",
-//       req,
-//     });
-
-//     await walletService.createWallet(newUser._id, "NGN");
-
-//     await logActivity({
-//       userId: newUser._id,
-//       action: "signup",
-//       description: "New user signed up and OTP sent.",
-//       req,
-//     });
-
-//     // Generate token
-//     const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
-//       expiresIn: process.env.JWT_EXPIRES_IN || "7d",
-//     });
-
-//     try {
-//       await sendEmail(user.email, subject, htmlContent);
-//     } catch (emailError) {
-//       console.error("Email sending failed:", emailError);
-//     }
-
-//     res.status(201).json({
-//       token,
-//       newUser,
-//     });
-//   } catch (err) {
-//     console.error("Signup error:", err);
-//     res.status(500).json({ msg: "Server error" });
-//   }
-// };
-
-const mongoose = require("mongoose");
-
 const generateOTPTemplate = (firstName, otp) => {
   return `
 <!DOCTYPE html>
@@ -256,9 +98,7 @@ const generateOTPTemplate = (firstName, otp) => {
 };
 
 const signup = async (req, res) => {
-  // Start a MongoDB Session
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  const trx = await knex.transaction();
 
   try {
     const {
@@ -274,213 +114,226 @@ const signup = async (req, res) => {
       termsAccepted,
     } = req.body;
 
-    // --- VALIDATIONS (Keep these outside the transaction for speed) ---
+    // --- VALIDATIONS ---
     if (!termsAccepted)
       throw new Error("You must accept the Terms & Conditions.");
     if (!username || username.length < 3)
       throw new Error("Username too short.");
 
-    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    const existingUser = await trx("users")
+      .where({ email })
+      .orWhere({ username })
+      .first();
     if (existingUser) throw new Error("Email or Username already exists.");
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // --- DATABASE OPERATIONS (Must pass { session }) ---
-
     // 1. Create User
-    const [newUser] = await User.create(
-      [
-        {
-          username,
-          first_name,
-          middle_name,
-          last_name,
-          email,
-          dob,
-          gender,
-          password: hashedPassword,
-          biometricPreference: biometricPreference || "None",
-          termsAccepted: true,
-          otp,
-          otpType: "signup",
-          otpExpires: Date.now() + 10 * 60 * 1000,
-        },
-      ],
-      { session },
-    );
+    const [newUser] = await trx("users")
+      .insert({
+        username,
+        first_name,
+        middle_name,
+        last_name,
+        email,
+        dob: dob || null,
+        gender: gender || null,
+        password: hashedPassword,
+        biometric_preference: biometricPreference || "None",
+        terms_accepted: true,
+        otp,
+        otp_type: "signup",
+        otp_expires: new Date(Date.now() + 10 * 60 * 1000),
+      })
+      .returning("*");
 
     // 2. Create Store
-    const [store] = await Store.create([{ owner: newUser._id }], { session });
+    const [store] = await trx("stores")
+      .insert({ owner_id: newUser.id })
+      .returning("*");
 
     // 3. Link Store to User
-    newUser.store = store._id;
-    // await newUser.save({ session });
+    await trx("users").where({ id: newUser.id }).update({ store_id: store.id });
 
-    // 4. Create Wallet (Ensure your service supports sessions)
-    //await walletService.createWallet(newUser._id, "NGN", { session });
-
-    // 5. Log Activity
+    // 4. Log Activity
     await logActivity(
       {
-        userId: newUser._id,
+        userId: newUser.id,
         action: "signup",
         description: "User registered successfully.",
         req,
       },
-      { session },
+      trx,
     );
 
+    // 5. Send verification email
     const subject = "Account verification OTP";
     const htmlContent = generateOTPTemplate(newUser.first_name, otp);
-
-    // Send email
     await sendEmail(newUser.email, subject, htmlContent);
-    await session.commitTransaction();
 
-    const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
+    await trx.commit();
+
+    const token = jwt.sign({ id: newUser.id }, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES_IN || "7d",
     });
 
     res.status(201).json({ token, newUser });
   } catch (err) {
-    // If ANY error happens, undo everything
-    await session.abortTransaction();
-    console.error("Signup error - Transaction Aborted:", err);
+    await trx.rollback();
+    console.error("Signup error - Transaction Rolled Back:", err);
     res.status(400).json({ error: err.message || "Server error" });
-  } finally {
-    // Always end the session
-    session.endSession();
   }
 };
 
-const login = async (req, res) => {
+const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await knex("users")
+      .where({ email: email.toLowerCase() })
+      .first();
     if (!user) return res.status(400).json({ msg: "Invalid credentials" });
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ msg: "Invalid credentials" });
 
-    // let wallet = await Wallet.findOne({ user: user._id });
-    // if (!wallet) {
-    //   const walletUserData = {
-    //     _id: user._id,
-    //     // customer_ref: `user_${user._id}`,
-    //     // firstname: user.firstname,
-    //     // surname: user.surname,
-    //     // email: user.email,
-    //     // mobile_no: user.phone,
-    //     // provider_code: PROVIDER_CODE,
-    //     // provider_name: PROVIDER_NAME,
-    //     // account_type: "static",
-    //   };
-
-    //   //   const walletResponse = await createWallet(walletUserData);
-
-    //   // if (walletResponse.status === "Successful") {
-    //   //   wallet = new Wallet({
-    //   //     user: user._id,
-    //   //     externalId:
-    //   //       walletResponse.data?.provider_response?.account_number ||
-    //   //       walletResponse.data?.externalId,
-    //   //     balance: 0,
-    //   //     currency: walletResponse.data?.provider_response?.currency || "NGN",
-    //   //   });
-    //   //   await wallet.save();
-    //   // }
-    // }
-
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES_IN || "7d",
     });
 
     await logActivity({
-      userId: user._id,
+      userId: user.id,
       action: "login",
       description: "User logged in successfully.",
       req,
     });
 
-    res.json({
-      token,
-      user,
-    });
+    res.json({ token, user });
   } catch (err) {
-    await logActivity({
-      userId: null,
-      action: "login_error",
-      description: `Unexpected server error during login: ${err.message}`,
-      req,
-    });
-
-    res.status(500).json({ msg: "Server error", err: err.message });
+    next(err);
   }
 };
-// const forgotPassword = async (req, res) => {
-//   try {
-//     const { email } = req.body;
-//     const user = await User.findOne({ email });
-//     if (!user) {
-//       return res.status(404).json({ error: "No account with that email." });
-//     }
 
-//     // Generate reset token
-//     const token = crypto.randomBytes(32).toString("hex");
+const updateUserProfile = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
 
-//     user.otp = token;
-//     user.otpExpires = Date.now() + 3600000; // 1 hour validity
-//     user.otpType = "reset";
-//     await user.save();
+    const updates = {
+      first_name: req.body.first_name,
+      last_name: req.body.last_name,
+      middle_name: req.body.middle_name,
+      username: req.body.username,
+      phone: req.body.phone,
+      bio: req.body.bio,
+      dob: req.body.dob,
+      gender: req.body.gender,
+      bvn: req.body.bvn,
+      nin: req.body.nin,
+    };
 
-//     const resetLink = `http://frontend_needs_to_give_me_a_link.com/reset-password/${token}`;
-//     const subject = "Password Reset Request";
-//     const htmlContent = `
-//       <p>Hello ${user.first_name || "User"},</p>
-//       <p>You requested a password reset. Click below to reset:</p>
-//       <a href="${resetLink}" target="_blank">${resetLink}</a>
-//       <p>If you didn’t request this, you can ignore this email.</p>
-//       <p>Link expires in 1 hour.</p>
-//     `;
+    // remove undefined fields
+    Object.keys(updates).forEach(
+      (key) => updates[key] === undefined && delete updates[key],
+    );
 
-//     try {
-//       await sendEmail(user.email, subject, htmlContent);
-//     } catch (emailError) {
-//       console.error("Email sending failed:", emailError);
-//     }
+    /* ----------------------------------
+       UNIQUENESS CHECKS
+    ---------------------------------- */
 
-//     res.json({
-//       message: "Password reset link has been sent to your email.",
-//       token,
-//     }); // token returned for testing
-//   } catch (error) {
-//     console.error("Forgot password error:", error);
-//     await logActivity({
-//       userId: null,
-//       action: "forget_password_error",
-//       description: `Unexpected server error during forget password: ${err.message}`,
-//       req,
-//     });
-//     res.status(500).json({ error: "Server error. Try again later." });
-//   }
-// };
+    const orConditions = [];
+
+    if (updates.username) {
+      orConditions.push({ username: updates.username });
+    }
+
+    if (updates.bvn) {
+      orConditions.push({ bvn: updates.bvn });
+    }
+
+    if (updates.nin) {
+      orConditions.push({ nin: updates.nin });
+    }
+
+    if (orConditions.length > 0) {
+      const existingUser = await User.findOne({
+        _id: { $ne: userId }, // exclude current user
+        $or: orConditions,
+      });
+
+      if (existingUser) {
+        if (existingUser.username === updates.username) {
+          return res.status(409).json({
+            success: false,
+            message: "Username already in use",
+          });
+        }
+
+        if (existingUser.bvn === updates.bvn) {
+          return res.status(409).json({
+            success: false,
+            message: "BVN already assigned to another user",
+          });
+        }
+
+        if (existingUser.nin === updates.nin) {
+          return res.status(409).json({
+            success: false,
+            message: "NIN already assigned to another user",
+          });
+        }
+      }
+    }
+
+    /* ----------------------------------
+       UPDATE USER
+    ---------------------------------- */
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: updates },
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      data: user,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
-    const user = await User.findOne({ email });
+
+    const user = await knex("users").where({ email }).first();
     if (!user) {
       return res.status(404).json({ error: "No account with that email." });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    user.otp = otp;
-    user.otpExpires = Date.now() + 10 * 60 * 1000;
-    user.otpType = "reset";
-    await user.save();
+    await knex("users")
+      .where({ email })
+      .update({
+        otp,
+        otp_expires: new Date(Date.now() + 10 * 60 * 1000),
+        otp_type: "reset",
+      });
 
     const subject = "Password Reset OTP";
     const htmlContent = `
@@ -488,7 +341,7 @@ const forgotPassword = async (req, res) => {
       <p>Your password reset OTP is:</p>
       <h2>${otp}</h2>
       <p>This OTP will expire in 10 minutes.</p>
-      <p>If you didn’t request this, you can ignore this email.</p>
+      <p>If you didn't request this, you can ignore this email.</p>
     `;
 
     try {
@@ -497,9 +350,7 @@ const forgotPassword = async (req, res) => {
       console.error("Email sending failed:", emailError);
     }
 
-    res.json({
-      message: "Password reset OTP has been sent to your email.",
-    });
+    res.json({ message: "Password reset OTP has been sent to your email." });
   } catch (error) {
     console.error("Forgot password error:", error);
     await logActivity({
@@ -511,35 +362,39 @@ const forgotPassword = async (req, res) => {
     res.status(500).json({ error: "Server error. Try again later." });
   }
 };
+
 const verifyForgetPasswordOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await knex("users").where({ email }).first();
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
 
-    if (!user.otp || !user.otpExpires || Date.now() > user.otpExpires) {
+    if (
+      !user.otp ||
+      !user.otp_expires ||
+      Date.now() > new Date(user.otp_expires).getTime()
+    ) {
       return res.status(400).json({ error: "OTP expired or not requested." });
     }
 
-    if (user.otp !== otp || user.otpType !== "reset") {
+    if (user.otp !== otp || user.otp_type !== "reset") {
       return res.status(400).json({ error: "Invalid OTP." });
     }
 
-    // Commit pending password
+    await knex("users")
+      .where({ email })
+      .update({
+        otp: null,
+        otp_type: "",
+        otp_expires: null,
+        reset_verified: true,
+        reset_verified_expires: new Date(Date.now() + 15 * 60 * 1000),
+      });
 
-    user.otp = null;
-    user.otpType = "";
-    user.otpExpires = null;
-    user.resetVerified = true;
-    user.resetVerifiedExpires = Date.now() + 15 * 60 * 1000;
-    await user.save();
-
-    await user.save();
-
-    res.json({ message: "Password reset successfully." });
+    res.json({ message: "OTP verified successfully." });
   } catch (error) {
     console.error("Verify forgot password error:", error);
     res.status(500).json({ error: "Server error. Try again later." });
@@ -550,14 +405,15 @@ const resetForgotPassword = async (req, res) => {
   try {
     const { email, newPassword } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await knex("users").where({ email }).first();
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
+
     if (
-      !user.resetVerified ||
-      !user.resetVerifiedExpires ||
-      Date.now() > user.resetVerifiedExpires
+      !user.reset_verified ||
+      !user.reset_verified_expires ||
+      Date.now() > new Date(user.reset_verified_expires).getTime()
     ) {
       return res.status(403).json({
         error: "OTP verification required before resetting password.",
@@ -574,12 +430,14 @@ const resetForgotPassword = async (req, res) => {
     }
 
     const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(newPassword, salt);
+    const password = await bcrypt.hash(newPassword, salt);
 
-    user.resetVerified = false;
-    user.resetVerifiedExpires = null;
-
-    await user.save();
+    await knex("users").where({ email }).update({
+      password,
+      reset_verified: false,
+      reset_verified_expires: null,
+      updated_at: new Date(),
+    });
 
     res.json({ message: "Password reset successfully." });
   } catch (error) {
@@ -592,11 +450,11 @@ const resetPassword = async (req, res) => {
   try {
     const { token, newPassword } = req.body;
 
-    const user = await User.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() },
-      otpType: "reset",
-    });
+    const user = await knex("users")
+      .where({ otp: token, otp_type: "reset" })
+      .whereNotNull("otp_expires")
+      .where("otp_expires", ">", new Date())
+      .first();
 
     if (!user) {
       return res.status(400).json({ error: "Invalid or expired reset token." });
@@ -604,18 +462,20 @@ const resetPassword = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    user.password = hashedPassword;
-    user.otp = undefined;
-    user.otpExpires = undefined;
-    user.otpType = "";
-    await user.save();
+    await knex("users").where({ id: user.id }).update({
+      password: hashedPassword,
+      otp: null,
+      otp_expires: null,
+      otp_type: "",
+      updated_at: new Date(),
+    });
 
     res.json({ message: "Password reset successful. You can now log in." });
   } catch (error) {
     await logActivity({
-      userId: req?.user?._id ?? null,
+      userId: req?.user?.id ?? null,
       action: "forget_password_error",
-      description: `Unexpected server error during forget password: ${err.message}`,
+      description: `Unexpected server error during forget password: ${error.message}`,
       req,
     });
     res.status(500).json({ error: "Server error. Try again later." });
@@ -626,7 +486,7 @@ const requestChangePassword = async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
 
-    const user = await User.findById(req.user.id);
+    const user = await knex("users").where({ id: req.user.id }).first();
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
@@ -637,23 +497,27 @@ const requestChangePassword = async (req, res) => {
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-    user.pendingPassword = hashedNewPassword;
-    user.otp = otp;
-    user.otpType = "change";
-    user.otpExpires = Date.now() + 10 * 60 * 1000;
-    await user.save();
 
-    console.log("Generated OTP:", otp);
-    const subject = "Password Reset OTP";
+    await knex("users")
+      .where({ id: user.id })
+      .update({
+        pending_password: hashedNewPassword,
+        otp,
+        otp_type: "change",
+        otp_expires: new Date(Date.now() + 10 * 60 * 1000),
+        updated_at: new Date(),
+      });
+
+    const subject = "Password Change OTP";
     const htmlContent = `
       <p>Hello ${user.first_name || "User"},</p>
-      <p>You requested a password reset. Use the otp below to reset:</p>
+      <p>You requested a password change. Use the OTP below to confirm:</p>
       <p><b>${otp}</b></p>
-      <p>If you didn’t request this, you can ignore this email.</p>
-      <p>Link expires in 1 hour.</p>
+      <p>If you didn't request this, you can ignore this email.</p>
+      <p>OTP expires in 10 minutes.</p>
     `;
+
     try {
       await sendEmail(user.email, subject, htmlContent);
     } catch (emailError) {
@@ -668,30 +532,36 @@ const requestChangePassword = async (req, res) => {
     res.status(500).json({ error: "Server error. Try again later." });
   }
 };
+
 const verifyChangePassword = async (req, res) => {
   try {
     const { otp } = req.body;
 
-    const user = await User.findById(req.user.id);
+    const user = await knex("users").where({ id: req.user.id }).first();
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
 
-    if (!user.otp || !user.otpExpires || Date.now() > user.otpExpires) {
+    if (
+      !user.otp ||
+      !user.otp_expires ||
+      Date.now() > new Date(user.otp_expires).getTime()
+    ) {
       return res.status(400).json({ error: "OTP expired or not requested." });
     }
 
-    if (user.otp !== otp || user.otpType !== "change") {
+    if (user.otp !== otp || user.otp_type !== "change") {
       return res.status(400).json({ error: "Invalid OTP." });
     }
 
-    user.password = user.pendingPassword;
-    user.pendingPassword = undefined;
-    user.otp = undefined;
-    user.otpExpires = undefined;
-    user.otpType = "";
-
-    await user.save();
+    await knex("users").where({ id: user.id }).update({
+      password: user.pending_password,
+      pending_password: null,
+      otp: null,
+      otp_expires: null,
+      otp_type: "",
+      updated_at: new Date(),
+    });
 
     res.json({ message: "Password changed successfully." });
   } catch (error) {
@@ -704,7 +574,7 @@ const changePassword = async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
 
-    const user = await User.findById(req.user.id);
+    const user = await knex("users").where({ id: req.user.id }).first();
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
@@ -715,16 +585,20 @@ const changePassword = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.password = hashedPassword;
-    await user.save();
 
-    res.json({ message: "Password changed successfully." });
+    await knex("users").where({ id: user.id }).update({
+      password: hashedPassword,
+      updated_at: new Date(),
+    });
+
     await logActivity({
-      userId: user._id,
+      userId: user.id,
       action: "password_change",
-      description: "User requested password change OTP.",
+      description: "User changed password successfully.",
       req,
     });
+
+    res.json({ message: "Password changed successfully." });
   } catch (error) {
     console.error("Change password error:", error);
     res.status(500).json({ error: "Server error. Try again later." });
@@ -741,44 +615,47 @@ const biometricLogin = async (req, res) => {
         .json({ message: "Email is required for biometric login" });
     }
 
-    const user = await User.findOne({ email });
+    const user = await knex("users").where({ email }).first();
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    if (user.biometricPreference === "None") {
+    if (user.biometric_preference === "None") {
       return res
         .status(403)
         .json({ message: "Biometric login is not enabled for this user" });
     }
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
       expiresIn: "7d",
     });
 
-    res.status(200).json({
-      message: "Biometric login successful",
-      token,
-      user,
-    });
+    res
+      .status(200)
+      .json({ message: "Biometric login successful", token, user });
   } catch (error) {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+const generateAddress = (prefix) => {
+  const hex = crypto.randomBytes(20).toString("hex");
+  return `${prefix}_0x${hex}`;
+};
+
 const verifyAccountOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await knex("users").where({ email }).first();
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
 
-    // Check OTP validity
     if (
       !user.otp ||
-      user.otpType !== "signup" ||
-      Date.now() > user.otpExpires
+      user.otp_type !== "signup" ||
+      Date.now() > new Date(user.otp_expires).getTime()
     ) {
       return res.status(400).json({ error: "OTP expired or invalid." });
     }
@@ -787,44 +664,101 @@ const verifyAccountOtp = async (req, res) => {
       return res.status(400).json({ error: "Incorrect OTP." });
     }
 
-    user.verified = true;
-    user.otp = undefined;
-    user.otpType = undefined;
-    user.otpExpires = undefined;
-    await user.save();
+    await knex.transaction(async (trx) => {
+      // 1. Update User
+      await trx("users").where({ id: user.id }).update({
+        verified: true,
+        otp: null,
+        otp_type: null,
+        otp_expires: null,
+        updated_at: new Date(),
+      });
 
-    res.json({ message: "Account verified successfully." });
+      const walletLayers = [
+        {
+          user_id: user.id,
+          wallet_type: "FIAT",
+          currency_code: "NGN",
+          wallet_address_name: `${user.first_name} ${user.last_name}`,
+          status: "inactive",
+        },
+        {
+          user_id: user.id,
+          wallet_type: "FIAT",
+          currency_code: "USD",
+          wallet_address_name: `${user.first_name} ${user.last_name}`,
+          status: "inactive",
+        },
+        {
+          user_id: user.id,
+          wallet_type: "TRADEBITS",
+          currency_code: "TBT",
+          wallet_address: generateAddress("TBT"),
+          status: "active",
+        },
+        {
+          user_id: user.id,
+          wallet_type: "CREDIX",
+          currency_code: "CRX",
+          wallet_address: generateAddress("CRX"),
+          status: "active",
+        },
+      ];
+
+      console.log("Inserting wallet layers...");
+      await trx("wallets").insert(walletLayers);
+    });
+
+    return res.status(200).json({
+      message: "Account verified and wallets initialized successfully.",
+      user: {
+        id: user.id,
+        email: user.email,
+        verified: true,
+      },
+    });
   } catch (err) {
-    console.error("Verify OTP error:", err);
-    res.status(500).json({ error: "Server error. Try again later." });
+    console.error("Verify OTP error (Transaction Rolled Back):", err);
+    // If we already sent a response, don't try to send another
+    if (res.headersSent) return;
+
+    return res.status(500).json({
+      error: "Server error. Wallet initialization failed.",
+      details: err.message, // Useful for debugging while you build
+    });
   }
 };
+
 const resendAccountOtp = async (req, res) => {
   try {
     const { email } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await knex("users").where({ email }).first();
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
 
-    if (user.isVerified) {
+    if (user.verified) {
       return res.status(400).json({ error: "Account is already verified." });
     }
 
-    // Generate new OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    user.otp = otp;
-    user.otpType = "signup";
-    user.otpExpires = Date.now() + 10 * 60 * 1000;
-    await user.save();
+
+    await knex("users")
+      .where({ id: user.id })
+      .update({
+        otp,
+        otp_type: "signup",
+        otp_expires: new Date(Date.now() + 10 * 60 * 1000),
+        updated_at: new Date(),
+      });
 
     const subject = "Resend Account Verification OTP";
     const htmlContent = `
       <p>Hello ${user.first_name || "User"},</p>
       <p>Here is your new OTP Code for account verification:</p>
       <p><b>${otp}</b></p>
-      <p>If you didn’t request this, ignore this email.</p>
+      <p>If you didn't request this, ignore this email.</p>
       <p>Code expires in 10 minutes.</p>
     `;
 
@@ -851,19 +785,13 @@ const suggestUsernames = async (req, res) => {
 
     const base = desiredUsername.replace(/[^a-zA-Z0-9]/g, "");
     if (base.length < 3 || base.length > 20) {
-      return res.json({
-        available: false,
-        suggestions: [],
-      });
+      return res.json({ available: false, suggestions: [] });
     }
 
-    const isTaken = await User.findOne({ username: base });
+    const isTaken = await knex("users").where({ username: base }).first();
 
     const suggestions = [];
-
-    if (!isTaken) {
-      suggestions.push(base);
-    }
+    if (!isTaken) suggestions.push(base);
 
     let candidates = [base];
 
@@ -874,12 +802,8 @@ const suggestUsernames = async (req, res) => {
       }
     }
 
-    if (first_name) {
-      candidates.push(first_name.replace(/[^a-zA-Z0-9]/g, ""));
-    }
-    if (last_name) {
-      candidates.push(last_name.replace(/[^a-zA-Z0-9]/g, ""));
-    }
+    if (first_name) candidates.push(first_name.replace(/[^a-zA-Z0-9]/g, ""));
+    if (last_name) candidates.push(last_name.replace(/[^a-zA-Z0-9]/g, ""));
 
     while (suggestions.length < 5) {
       const candidate =
@@ -888,17 +812,16 @@ const suggestUsernames = async (req, res) => {
       const suggestion = `${candidate}${randomSuffix}`;
 
       if (suggestion.length <= 20) {
-        const exists = await User.findOne({ username: suggestion });
+        const exists = await knex("users")
+          .where({ username: suggestion })
+          .first();
         if (!exists && !suggestions.includes(suggestion)) {
           suggestions.push(suggestion);
         }
       }
     }
 
-    res.json({
-      available: !isTaken,
-      suggestions,
-    });
+    res.json({ available: !isTaken, suggestions });
   } catch (err) {
     console.error("Username suggestion error:", err);
     res.status(500).json({ msg: "Server error" });
@@ -907,18 +830,17 @@ const suggestUsernames = async (req, res) => {
 
 const toggleSmartReply = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id;
     const { enabled } = req.body;
 
     if (typeof enabled !== "boolean") {
       return res.status(400).json({ msg: "enabled must be true or false" });
     }
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { smartReplyEnabled: enabled },
-      { new: true, select: "username email smartReplyEnabled" },
-    );
+    const [user] = await knex("users")
+      .where({ id: userId })
+      .update({ smart_reply_enabled: enabled, updated_at: new Date() })
+      .returning(["id", "username", "email", "smart_reply_enabled"]);
 
     if (!user) {
       return res.status(404).json({ msg: "User not found" });
@@ -932,6 +854,7 @@ const toggleSmartReply = async (req, res) => {
     res.status(500).json({ msg: "Server error" });
   }
 };
+
 const checkEmailAvailability = async (req, res) => {
   try {
     const { email } = req.body;
@@ -940,7 +863,7 @@ const checkEmailAvailability = async (req, res) => {
       return res.status(400).json({ error: "Email is required." });
     }
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await knex("users").where({ email }).first();
 
     if (existingUser) {
       return res.json({ available: false, message: "Email is already taken." });
@@ -952,6 +875,7 @@ const checkEmailAvailability = async (req, res) => {
     res.status(500).json({ error: "Server error. Try again later." });
   }
 };
+
 const checkUsernameAvailability = async (req, res) => {
   try {
     const { username } = req.body;
@@ -969,7 +893,9 @@ const checkUsernameAvailability = async (req, res) => {
       });
     }
 
-    const existingUser = await User.findOne({ username: cleanUsername });
+    const existingUser = await knex("users")
+      .where({ username: cleanUsername })
+      .first();
 
     if (existingUser) {
       return res.json({
@@ -997,24 +923,28 @@ const updateProfile = async (req, res) => {
       biometricPreference,
     } = req.body;
 
-    const user = await User.findById(userId);
+    const user = await knex("users").where({ id: userId }).first();
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
 
-    if (first_name) user.first_name = first_name;
-    if (middle_name) user.middle_name = middle_name;
-    if (last_name) user.last_name = last_name;
-    if (dob) user.dob = new Date(dob);
-    if (gender) user.gender = gender;
-    if (biometricPreference) user.biometricPreference = biometricPreference;
+    const updates = { updated_at: new Date() };
 
-    // Save changes
-    await user.save();
+    if (first_name) updates.first_name = first_name;
+    if (middle_name) updates.middle_name = middle_name;
+    if (last_name) updates.last_name = last_name;
+    if (dob) updates.dob = new Date(dob);
+    if (gender) updates.gender = gender;
+    if (biometricPreference) updates.biometric_preference = biometricPreference;
+
+    const [updatedUser] = await knex("users")
+      .where({ id: userId })
+      .update(updates)
+      .returning("*");
 
     return res.json({
       message: "Profile updated successfully",
-      user,
+      user: updatedUser,
     });
   } catch (error) {
     console.error("Update profile error:", error);
@@ -1024,19 +954,34 @@ const updateProfile = async (req, res) => {
 
 const getOnlineUsers = async (req, res) => {
   try {
-    const users = await User.find({ isOnline: true }).select(
-      "first_name last_name username email isOnline lastSeen",
-    );
+    const users = await knex("users")
+      .where({ is_online: true })
+      .select(
+        "first_name",
+        "last_name",
+        "username",
+        "email",
+        "is_online",
+        "last_seen",
+      );
+
     res.json(users);
   } catch (err) {
     res.status(500).json({ message: "Error fetching online users" });
   }
 };
+
 const getUserLastSeen = async (req, res) => {
   try {
     const { id } = req.params;
-    const user = await User.findById(id).select("username isOnline lastSeen");
+
+    const user = await knex("users")
+      .where({ id })
+      .select("username", "is_online", "last_seen")
+      .first();
+
     if (!user) return res.status(404).json({ message: "User not found" });
+
     res.json(user);
   } catch (err) {
     res.status(500).json({ message: "Error fetching user last seen" });
@@ -1062,4 +1007,5 @@ module.exports = {
   updateProfile,
   getUserLastSeen,
   getOnlineUsers,
+  generateOTPTemplate,
 };

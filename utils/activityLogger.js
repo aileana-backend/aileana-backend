@@ -1,4 +1,4 @@
-const ActivityLog = require("../models/ActivityLog");
+const knex = require("../config/pg"); // adjust path to your knex config
 
 async function logActivity({
   userId,
@@ -8,16 +8,18 @@ async function logActivity({
   metadata = {},
 }) {
   try {
-    await ActivityLog.create({
-      user: userId,
+    await knex("activity_logs").insert({
+      user_id: userId,
       action,
       description,
-      ipAddress: req?.ip,
-      userAgent: req?.headers["user-agent"],
-      metadata,
+      ip_address: req?.ip,
+      user_agent: req?.headers["user-agent"],
+      metadata: JSON.stringify(metadata),
+      created_at: knex.fn.now(), 
     });
   } catch (err) {
     console.error("Error saving activity log:", err);
   }
 }
+
 module.exports = logActivity;

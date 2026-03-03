@@ -1,19 +1,10 @@
 const { Types } = require("mongoose");
-<<<<<<< HEAD
-const {
-  TransactionFlow,
-  TransactionStatus,
-  TransactionType,
-} = require("../../generated/prisma");
-const { prismaConn, prismadb } = require("../../config/prisma.config");
-=======
 // const {
 //   TransactionFlow,
 //   TransactionStatus,
 //   TransactionType,
 // } = require("../../generated/prisma");
 // const { prismaConn, prismadb } = require("../../config/prisma.config");
->>>>>>> payment
 
 class TransactionService {
   /**
@@ -34,7 +25,7 @@ class TransactionService {
       description = null,
       relatedTransactionId = null,
       metadata = null,
-    }
+    },
   ) {
     try {
       if (!Types.ObjectId.isValid(userId)) throw new Error("Invalid user ID");
