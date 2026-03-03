@@ -1,151 +1,180 @@
-require("dotenv").config()
+require("dotenv").config();
 
-const express = require("express")
-const http = require("http")
-const cors = require("cors")
+const express = require("express");
+const http = require("http");
+const cors = require("cors");
 
-const passport = require("passport")
-require("./config/passport")
-const { Server } = require("socket.io")
-const connectDB = require("./config/db")
+const passport = require("passport");
+require("./config/passport");
+const { Server } = require("socket.io");
+const connectDB = require("./config/db");
+const authRoutes = require("./routes/auth");
+const profileRoutes = require("./routes/profile");
+const walletRoutes = require("./routes/wallet");
+const tradebitsRoutes = require("./routes/tradebits");
+const messagesRoutes = require("./routes/messages");
+const storeRoutes = require("./routes/store");
+const callsRoutes = require("./routes/calls");
+const categoryRoutes = require("./routes/category");
+const postRoutes = require("./routes/post");
+const productRoutes = require("./routes/product");
+const webhookRoute = require("./routes/webhook");
+const { verifySocketToken } = require("./middleware/auth");
+const Message = require("./models/Message");
+const User = require("./models/User");
+//const monnifyService = require("./services/monnify/monnify.service");
+//const walletService = require("./wallet/services/wallet.service");
+const { uniqueId } = require("./utils/string.util");
 
-const authRoutes = require("./routes/auth")
-const profileRoutes = require("./routes/profile")
-const walletRoutes = require("./routes/wallet")
-const messagesRoutes = require("./routes/messages")
+const app = express();
+const server = http.createServer(app);
 
-const callsRoutes = require("./routes/calls")
-const postRoutes = require("./routes/post")
-const { verifySocketToken } = require("./middleware/auth")
-const Message = require("./models/Message")
-const User = require("./models/User")
-const monnifyService = require("./monnify/monnify.service")
-const walletService = require("./wallet/services/wallet.service")
-const { uniqueId } = require("./utils/string.util")
-const webhookRoute = require("./wallet/routes/webhook.route")
+connectDB();
 
-const app = express()
-const server = http.createServer(app)
+app.use(cors());
+app.use(express.json());
 
-connectDB()
+function sanitizeBody(body = {}) {
+  const SENSITIVE_FIELDS = [
+    "password",
+    "confirmPassword",
+    "pin",
+    "otp",
+    "token",
+    "accessToken",
+    "refreshToken",
+  ];
 
-app.use(cors())
-app.use(
-	express.json({
-		verify: (req, res, buf) => {
-			req.rawBody = buf.toString()
-		},
-	}),
-)
-app.use(passport.initialize())
+  const sanitized = { ...body };
+
+  for (const field of SENSITIVE_FIELDS) {
+    if (sanitized[field]) {
+      sanitized[field] = "********";
+    }
+  }
+
+  return sanitized;
+}
+
+// --- 1. DEFINE HELPERS FIRST ---
+function getLoggerForStatusCode(statusCode) {
+  if (statusCode >= 500) return console.error.bind(console);
+  if (statusCode >= 400) return console.warn.bind(console);
+  return console.info.bind(console);
+}
+
+// --- 2. ADD THE MIDDLEWARE HERE (BEFORE ROUTES) ---
+app.use((req, res, next) => {
+  res.on("finish", () => {
+    const logger = getLoggerForStatusCode(res.statusCode);
+
+    const safeBody = sanitizeBody(req.body);
+
+    logger(
+      `[${new Date().toISOString()}] ${req.method} ${
+        req.originalUrl
+      } ${JSON.stringify(safeBody)} ${res.statusCode}`,
+    );
+  });
+
+  next();
+});
+
+app.use(express.urlencoded({ extended: true }));
+app.use(passport.initialize());
+
 // API routes
-app.use("/api", authRoutes)
-app.use("/api", profileRoutes)
-app.use("/api", walletRoutes)
-//app.use("/api", messagesRoutes);
-app.use("/api", callsRoutes)
-app.use("/api", postRoutes)
+app.use("/api", authRoutes);
+app.use("/api", profileRoutes);
+app.use("/api", walletRoutes);
+app.use("/api", storeRoutes);
+app.use("/api", categoryRoutes);
+app.use("/api", productRoutes);
+app.use("/api", callsRoutes);
+app.use("/api", postRoutes);
+app.use("/api", authRoutes);
+app.use("/api", tradebitsRoutes);
 // webhook route
-app.use("/api", webhookRoute)
+app.use("/api", webhookRoute);
 //testing and commiting
-app.get("/", (req, res) => res.send({ status: "Backend runing" }))
-app.set("trust proxy", 1)
+app.get("/", (req, res) => res.send({ status: "Backend runing" }));
+app.set("trust proxy", 1);
+
+//app.use(errorHandler);
 
 const io = new Server(server, {
-	cors: { origin: "*", methods: ["GET", "POST"] },
-})
+  cors: { origin: "*", methods: ["GET", "POST"] },
+});
 
 io.use(async (socket, next) => {
-	try {
-		await verifySocketToken(socket)
-		next()
-	} catch (err) {
-		next(new Error("Authentication error"))
-	}
-})
+  try {
+    await verifySocketToken(socket);
+    next();
+  } catch (err) {
+    next(new Error("Authentication error"));
+  }
+});
 
 io.on("connection", (socket) => {
-	const userId = socket.userId
-	console.log("Socket connected", userId)
+  const userId = socket.userId;
+  console.log("Socket connected", userId);
 
-	// join room for user
-	socket.join(`user_${userId}`)
+  // join room for user
+  socket.join(`user_${userId}`);
 
-	socket.on("private_message", async (data) => {
-		try {
-			const { receiver, content } = data
-			if (!receiver || !content) {
-				return socket.emit("error", { msg: "Recipient and content required" })
-			}
-			const msg = new Message({
-				sender: userId,
-				receiver,
-				content,
-			})
-			await msg.save()
+  socket.on("private_message", async (data) => {
+    try {
+      const { receiver, content } = data;
 
-			// Emit to receiver and sender
-			io.to(`user_${receiver}`).emit("private_message", msg)
-			//for the sender only
-			socket.emit("private_message", msg)
-		} catch (err) {
-			console.error("socket message error", err)
-			socket.emit("error", { msg: "Message sending failed" })
-		}
-	})
-	socket.on("message_read", async (messageId) => {
-		try {
-			await Message.findByIdAndUpdate(messageId, { read: true })
-		} catch (err) {
-			console.error("seen update error", err)
-		}
-	})
-	socket.broadcast.emit("user_online", { userId })
-	socket.on("disconnect", () => {
-		socket.broadcast.emit("user_offline", { userId })
-	})
-})
+      if (!receiver || !content) {
+        return socket.emit("error", { msg: "Recipient and content required" });
+      }
+
+      const msg = new Message({
+        sender: userId,
+        receiver,
+        content,
+      });
+
+      await msg.save();
+
+      // Emit once per user via rooms
+      io.to(`user_${receiver}`).emit("private_message", msg);
+      io.to(`user_${userId}`).emit("private_message", msg);
+    } catch (err) {
+      console.error("socket message error", err);
+      socket.emit("error", { msg: "Message sending failed" });
+    }
+  });
+
+  socket.on("message_read", async (messageId) => {
+    try {
+      await Message.findByIdAndUpdate(messageId, { read: true });
+    } catch (err) {
+      console.error("seen update error", err);
+    }
+  });
+  socket.broadcast.emit("user_online", { userId });
+  socket.on("disconnect", async () => {
+    try {
+      await User.findByIdAndUpdate(socket.userId, {
+        isOnline: false,
+        lastSeen: new Date(),
+      });
+
+      socket.broadcast.emit("user_offline", { userId });
+    } catch (err) {
+      console.error("Error updating user on disconnect:", err);
+    }
+  });
+});
 app.use((req, res, next) => {
-	req.io = io
-	next()
-})
+  req.io = io;
+  next();
+});
 
-app.use("/api", messagesRoutes)
+app.use("/api", messagesRoutes);
 
-const PORT = process.env.PORT || 4000
-server.listen(PORT, async () => {
-	console.log(`Server running on port ${PORT}`)
-
-	const newWallet = await walletService.createWallet("68d3ed3483675ab3d739476e")
-
-	const reference1 = uniqueId(12, true) // unique numeric reference
-	const reference2 = uniqueId(12, true) // unique numeric reference
-	const reference3 = uniqueId(12, true) // unique numeric reference
-
-	if (newWallet) {
-		// Testing Race Condition on wallet crediting with same user performing multiple transaction symultaneously
-		// Expected result is that each transaction is processed sequentially and wallet balance is correctly updated
-		// instead of being corrupted by concurrent updates.
-		// const creditResult1 = await walletService.creditWallet(newWallet.id, 10000, 0, reference1, "Initial wallet funding", { source: "system" })
-		// const creditResult2 = await walletService.creditWallet(newWallet.id, 10000, 0, reference2, "Initial wallet funding", { source: "system" })
-		// const creditResult3 = await walletService.debitWallet(newWallet.id, 5000, 100, reference3, "Initial wallet funding", { source: "system" })
-		// console.log("Single sequential transaction results")
-		// console.log("====================================")
-		// console.log(creditResult1)
-		// console.log(creditResult2)
-		// console.log(creditResult3)
-		// console.log("====================================")
-		// Lets produce a parallel processing of the above transactions using Promise.allSettled
-		// const [creditResultA, debitResultB, creditResultC, debitResultD] = await Promise.allSettled([
-		// 	walletService.creditWallet(newWallet.id, 10000, 0, uniqueId(12, true), "Initial wallet funding", { source: "system" }),
-		// 	walletService.debitWallet(newWallet.id, 5000, 100, uniqueId(12, true), "Initial wallet funding", { source: "system" }),
-		// 	walletService.creditWallet(newWallet.id, 10000, 0, uniqueId(12, true), "Initial wallet funding", { source: "system" }),
-		// 	walletService.debitWallet(newWallet.id, 5000, 100, uniqueId(12, true), "Initial wallet funding", { source: "system" }),
-		// ])
-		// console.log("Parallel transaction results")
-		// console.log(creditResultA)
-		// console.log(debitResultB)
-		// console.log(creditResultC)
-		// console.log(debitResultD)
-	}
-})
+const PORT = process.env.PORT || 4000;
+console.log("PORT", PORT);
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

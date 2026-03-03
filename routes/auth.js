@@ -10,7 +10,7 @@ const {
   signup,
   login,
   changePassword,
-  resetPassword,
+  updateProfile,
   forgotPassword,
   requestChangePassword,
   verifyChangePassword,
@@ -23,6 +23,8 @@ const {
   resetForgotPassword,
   checkEmailAvailability,
   checkUsernameAvailability,
+  getOnlineUsers,
+  getUserLastSeen,
 } = require("../controllers/authController");
 const {
   signupRules,
@@ -40,7 +42,9 @@ router.post("/bio-login", biometricLogin);
 router.post("/request-forgot-password", forgotPassword);
 router.post("/verify-forgot-password-otp", verifyForgetPasswordOtp);
 router.post("/reset-forgot-password", resetForgotPassword);
+//router.put("/profile", auth, updateUserProfile);
 // router.post("/forgot-password", forgotPassword);
+router.put("/profile", auth, updateProfile);
 // router.post("/reset-password", resetPassword);
 router.post("/change-password", auth, changePassword);
 router.post("/change-password-request", auth, requestChangePassword);
@@ -48,6 +52,10 @@ router.post("/change-password-verify", auth, verifyChangePassword);
 router.post("/verify-otp", verifyAccountOtp);
 router.post("/resend-otp", resendAccountOtp);
 router.post("/suggest-usernames", suggestUsernames);
+
+router.get("/online", auth, getOnlineUsers);
+
+router.get("/:id/last-seen", auth, getUserLastSeen);
 router.post("/messages/toggle-smart-reply", auth, toggleSmartReply);
 router.get(
   "/google",

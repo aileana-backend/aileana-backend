@@ -1,5 +1,5 @@
 const { prismadb } = require("../../config/prisma.config")
-const { TransactionFlow } = require("../../generated/prisma")
+// const { TransactionFlow } = require("../../generated/prisma")
 
 class LedgerService {
 	/**
@@ -12,7 +12,7 @@ class LedgerService {
 			if (!transactionId) throw new Error("Invalid transaction ID")
 			if (credit < 0) throw new Error("Invalid credit amount")
 
-			return await this.logLedgerEntry(tranx, { walletId, transactionId, amount: credit, prevBalance, currBalance, type: TransactionFlow.Credit })
+			return await this.logLedgerEntry(tranx, { walletId, transactionId, amount: credit, prevBalance, currBalance, type: TransactionFlow.Inflow })
 		} catch (error) {
 			console.error(`[LedgerService][logLedgerCreditEntry]`, error)
 			return false
@@ -29,7 +29,7 @@ class LedgerService {
 			if (!transactionId) throw new Error("Invalid transaction ID")
 			if (debit < 0) throw new Error("Invalid debit amount")
 
-			return await this.logLedgerEntry(tranx, { walletId, transactionId, amount: debit, prevBalance, currBalance, type: TransactionFlow.Debit })
+			return await this.logLedgerEntry(tranx, { walletId, transactionId, amount: debit, prevBalance, currBalance, type: TransactionFlow.Outflow })
 		} catch (error) {
 			console.error(`[LedgerService][logLedgerDebitEntry]`, error)
 			return false
@@ -40,7 +40,7 @@ class LedgerService {
 	 * Logs a ledger entry for a wallet transaction.
 	 * @returns
 	 */
-	async logLedgerEntry(tranx, { walletId, transactionId, amount = 0, prevBalance = 0, currBalance = 0, type = TransactionFlow.Credit }) {
+	async logLedgerEntry(tranx, { walletId, transactionId, amount = 0, prevBalance = 0, currBalance = 0, type = TransactionFlow.Inflow }) {
 		if (!walletId) throw new Error("Invalid wallet ID")
 		if (!transactionId) throw new Error("Invalid transaction ID")
 		if (amount <= 0) throw new Error("Invalid amount")
@@ -60,8 +60,8 @@ class LedgerService {
 				transactionId,
 				prevBalance,
 				currBalance,
-				credit: type === TransactionFlow.Credit ? amount : 0,
-				debit: type === TransactionFlow.Debit ? amount : 0,
+				credit: type === TransactionFlow.Inflow ? amount : 0,
+				debit: type === TransactionFlow.Outflow ? amount : 0,
 			},
 		})
 		return ledgerEntry

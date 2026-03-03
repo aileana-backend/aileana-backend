@@ -9,15 +9,17 @@
  * @returns {string}
  */
 function uniqueId(length = 20, numbers = false) {
-	let result = ""
-	const characters = !numbers ? "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789" : "0123456789"
-	const charactersLength = characters.length
-	for (let i = 0; i < length; i++) {
-		result += characters.charAt(Math.floor(Math.random() * charactersLength))
-	}
-	return result
+  let result = "";
+  const characters = !numbers
+    ? "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    : "0123456789";
+  const charactersLength = characters.length;
+  for (let i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+  return result;
 }
 
 module.exports = {
-	uniqueId,
-}
+  uniqueId,
+};

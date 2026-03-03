@@ -1,7 +1,7 @@
 // utils/webhookVerifier.js
-const crypto = require("crypto")
+const crypto = require("crypto");
 
-const DEFAULT_MERCHANT_CLIENT_SECRET = process.env.MONNIFY_SECRET_KEY || ""
+const DEFAULT_MERCHANT_CLIENT_SECRET = process.env.MONNIFY_SECRET_KEY || "";
 
 /**
  * Compute HMAC-SHA512 hash of the request body using the merchant secret
@@ -10,7 +10,10 @@ const DEFAULT_MERCHANT_CLIENT_SECRET = process.env.MONNIFY_SECRET_KEY || ""
  * @returns {string} - The hex encoded HMAC hash
  */
 function computeHash(requestBody, secret = DEFAULT_MERCHANT_CLIENT_SECRET) {
-	return crypto.createHmac("sha512", secret).update(requestBody, "utf8").digest("hex")
+  return crypto
+    .createHmac("sha512", secret)
+    .update(requestBody, "utf8")
+    .digest("hex");
 }
 
 /**
@@ -20,12 +23,16 @@ function computeHash(requestBody, secret = DEFAULT_MERCHANT_CLIENT_SECRET) {
  * @param {string} [secret=DEFAULT_MERCHANT_CLIENT_SECRET]
  * @returns {boolean} - True if signature is valid
  */
-function verifyWebhook(requestBody, signatureHeader, secret = DEFAULT_MERCHANT_CLIENT_SECRET) {
-	const computed = computeHash(requestBody, secret)
-	return computed.toLowerCase() === (signatureHeader || "").toLowerCase()
+function verifyWebhook(
+  requestBody,
+  signatureHeader,
+  secret = DEFAULT_MERCHANT_CLIENT_SECRET
+) {
+  const computed = computeHash(requestBody, secret);
+  return computed.toLowerCase() === (signatureHeader || "").toLowerCase();
 }
 
 module.exports = {
-	computeHash,
-	verifyWebhook,
-}
+  computeHash,
+  verifyWebhook,
+};

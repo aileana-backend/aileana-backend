@@ -1,6 +1,6 @@
 const axios = require("axios");
 const crypto = require("crypto");
-const Wallet = require("../models/Wallet");
+const Wallet = require("../models/wallets");
 
 const ONEPIPE_API_KEY = process.env.ONEPIPE_API_KEY || "";
 const ONEPIPE_SECRET_KEY = process.env.ONEPIPE_API_SECRET || "";
@@ -52,7 +52,7 @@ async function onepipeTransact(payload) {
   const { data } = await axios.post(
     `${ONEPIPE_BASE_URL}/v2/transact`,
     payload,
-    { headers }
+    { headers },
   );
   return data;
 }

@@ -12,7 +12,7 @@ const PostSchema = new mongoose.Schema(
 
     media: [
       {
-        url: { type: String, required: true },
+        url: { type: String },
         type: {
           type: String,
           enum: ["image", "video", "audio"],
@@ -41,7 +41,13 @@ const PostSchema = new mongoose.Schema(
         createdAt: { type: Date, default: Date.now },
       },
     ],
+    uploadStatus: {
+      type: String,
+      enum: ["processing", "completed", "failed"],
+      default: "processing",
+    },
   },
+
   { timestamps: true }
 );
 

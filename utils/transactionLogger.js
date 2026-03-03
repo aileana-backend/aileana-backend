@@ -1,4 +1,4 @@
-const Transaction = require("../models/Transaction");
+const Transaction = require("../models/transactions");
 
 async function logTransaction(data) {
   const tx = new Transaction({

@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../generated/prisma"
@@ -12,6 +6,65 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model Wallet {
+  id                String        @id @default(cuid())
+  userId            String        @unique
+  walletAddress     String        @unique
+  walletAddressName String
+  walletAddressId   String
+  walletAddressTag  String
+  balance           String        @default("0.0")
+  status            WalletStatus  @default(Active)
+  isDeleted         Boolean       @default(false)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  Ledger            Ledger[]
+  Transactions      Transaction[]
+}
+
+model Transaction {
+  id                   String            @id @default(cuid())
+  userId               String
+  walletId             String
+  fees                 Float             @default(0.0)
+  amount               Float             @default(0.0)
+  totalAmount          Float             @default(0.0)
+  type                 TransactionType
+  flow                 TransactionFlow
+  status               TransactionStatus @default(Pending)
+  reference            String            @unique
+  description          String?
+  metadata             Json?
+  relatedTransactionId String?
+  isDeleted            Boolean           @default(false)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  Ledger               Ledger[]
+  Wallet               Wallet            @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, type], map: "idx_user_status_type")
+  @@index([walletId], map: "idx_wallet")
+  @@index([isDeleted, createdAt], map: "idx_deleted_createdAt")
+}
+
+model Ledger {
+  id            String      @id @default(cuid())
+  walletId      String
+  transactionId String
+  debit         Float       @default(0.0)
+  credit        Float       @default(0.0)
+  prevBalance   Float       @default(0.0)
+  currBalance   Float       @default(0.0)
+  isDeleted     Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  Transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  Wallet        Wallet      @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId, transactionId], map: "idx_ledger_walletId_transaction")
+  @@index([isDeleted, createdAt], map: "idx_ledger_deleted_createdAt")
 }
 
 enum TransactionFlow {
@@ -35,78 +88,7 @@ enum TransactionType {
 }
 
 enum WalletStatus {
-  Active // operational
-  Inactive // blocked
-  Suspended // temporarily hold for further investigation
-}
-
-model Wallet {
-  id                String       @id @default(cuid())
-  userId            String       @unique
-  walletAddress     String       @unique
-  walletAddressName String
-  walletAddressId   String
-  walletAddressTag  String
-  balance           String       @default("0.0")
-  status            WalletStatus @default(Active)
-
-  isDeleted Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relation
-  Transactions Transaction[]
-  Ledger       Ledger[]
-}
-
-model Transaction {
-  id       String @id @default(cuid())
-  userId   String
-  walletId String
-
-  fees                 Float             @default(0.0)
-  amount               Float             @default(0.0)
-  totalAmount          Float             @default(0.0) // amount + fees or amount - fees based on flow
-  type                 TransactionType
-  flow                 TransactionFlow
-  status               TransactionStatus @default(Pending)
-  reference            String            @unique
-  description          String?
-  metadata             Json?
-  relatedTransactionId String? // for linking related transactions (e.g., refunds, reversals)
-
-  isDeleted Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relation
-  Wallet Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  Ledger Ledger[]
-
-  @@index([userId, status, type], name: "idx_user_status_type")
-  @@index([walletId], name: "idx_wallet")
-  @@index([isDeleted, createdAt], name: "idx_deleted_createdAt")
-}
-
-model Ledger {
-  id            String @id @default(cuid())
-  walletId      String
-  transactionId String
-
-  debit  Float @default(0.0)
-  credit Float @default(0.0)
-
-  prevBalance Float @default(0.0)
-  currBalance Float @default(0.0)
-
-  isDeleted Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  Wallet      Wallet      @relation(fields: [walletId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  Transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-
-  @@index([walletId, transactionId], name: "idx_ledger_walletId_transaction")
-  @@index([isDeleted, createdAt], name: "idx_ledger_deleted_createdAt")
+  Active
+  Inactive
+  Suspended
 }

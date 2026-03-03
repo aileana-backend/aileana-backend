@@ -5,16 +5,18 @@ const {
   getChatHistory,
   getUsersChatHistoryForAi,
   toggleSmartReply,
+  getConversations,
 } = require("../controllers/messageController");
 const Message = require("../models/Message");
+router.get("/conversations", auth, getConversations);
 
-// fetch history with a specific user
 router.get("/messages/:userId", auth, getChatHistory);
 router.get("/messages/ai/:user1/:user2", auth, getUsersChatHistoryForAi);
+
+
 router.post("/messages", auth, async (req, res) => {
   try {
     const { receiver, content } = req.body;
-    console.log(receiver, content);
     const msg = new Message({
       sender: req.user._id,
       receiver,
@@ -23,7 +25,7 @@ router.post("/messages", auth, async (req, res) => {
     await msg.save();
 
     // emit in real-time too
-    req.io.to(`user_${receiver}`).emit("private_message", msg);
+    //req.io.to(`user_${receiver}`).emit("private_message", msg);
 
     return res.json(msg);
   } catch (err) {
