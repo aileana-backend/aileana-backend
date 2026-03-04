@@ -93,10 +93,8 @@ app.use("/api", productRoutes);
 app.use("/api", callsRoutes);
 app.use("/api", postRoutes);
 app.use("/api", authRoutes);
-<<<<<<< HEAD
-=======
 app.use("/api", tradebitsRoutes);
->>>>>>> payment
+
 // webhook route
 app.use("/api", webhookRoute);
 //testing and commiting
