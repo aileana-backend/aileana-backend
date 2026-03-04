@@ -47,16 +47,7 @@ passport.use(
             })
             .returning("*");
 
-<<<<<<< HEAD
-            password: "",
-
-            otp: null,
-            otpType: "",
-            otpExpires: null,
-          });
-=======
           user = newUser;
->>>>>>> payment
         }
 
         const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {

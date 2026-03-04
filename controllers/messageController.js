@@ -1,28 +1,10 @@
-<<<<<<< HEAD
-const { success } = require("zod");
-const Message = require("../models/Message");
-const User = require("../models/User");
-const mongoose = require("mongoose");
-=======
 const knex = require("../config/pg");
->>>>>>> payment
 
 const getChatHistory = async (req, res) => {
   try {
     const userId = req.user.id;
     const otherUserId = req.params.userId;
 
-<<<<<<< HEAD
-    const messages = await Message.find({
-      $or: [
-        { sender: userId, receiver: otherUserId },
-        { sender: otherUserId, receiver: userId },
-      ],
-    })
-      .sort({ createdAt: 1 })
-      .populate("sender", "first_name last_name email username")
-      .populate("receiver", "first_name last_name email username");
-=======
     const messages = await knex("messages")
       .where(function () {
         this.where({ sender_id: userId, receiver_id: otherUserId }).orWhere({
@@ -44,7 +26,6 @@ const getChatHistory = async (req, res) => {
         "receiver.username as receiver_username",
       )
       .orderBy("messages.created_at", "asc");
->>>>>>> payment
 
     res.json({ messages });
   } catch (err) {
@@ -53,126 +34,6 @@ const getChatHistory = async (req, res) => {
   }
 };
 
-<<<<<<< HEAD
-// const getConversations = async (req, res) => {
-//   try {
-//     const userId = req.user._id;
-
-//     const messages = await Message.find({
-//       $or: [{ sender: userId }, { receiver: userId }],
-//     })
-//       .sort({ createdAt: -1 })
-//       .populate("sender", "first_name last_name username email")
-//       .populate("receiver", "first_name last_name username email");
-
-//     const conversationsMap = new Map();
-
-//     for (let msg of messages) {
-//       const otherUser =
-//         msg.sender._id.toString() === userId.toString()
-//           ? msg.receiver
-//           : msg.sender;
-
-//       if (!conversationsMap.has(otherUser._id.toString())) {
-//         conversationsMap.set(otherUser._id.toString(), {
-//           user: otherUser,
-//           lastMessage: msg,
-//         });
-//       }
-//     }
-
-//     // Convert map to array
-//     const conversations = Array.from(conversationsMap.values());
-
-//     res.json({ conversations });
-//   } catch (err) {
-//     console.error("getConversations error:", err);
-//     res.status(500).json({ msg: "Server error" });
-//   }
-// };
-
-/**
- * Retrieves the latest message for every unique contact a user has interacted with.
- * Mimics the WhatsApp "Home" screen logic.
- */
-const getConversations = async (req, res) => {
-  try {
-    const userId = new mongoose.Types.ObjectId(req.user._id);
-
-    const conversations = await Message.aggregate([
-      // 1. Find all messages involving this user
-      {
-        $match: {
-          $or: [{ sender: userId }, { receiver: userId }],
-        },
-      },
-      // 2. Sort by date descending so the newest messages are processed first
-      { $sort: { createdAt: -1 } },
-      // 3. Create a 'contactId' field to group by (the person the user is talking to)
-      {
-        $addFields: {
-          contactId: {
-            $cond: [{ $eq: ["$sender", userId] }, "$receiver", "$sender"],
-          },
-        },
-      },
-      // 4. Group by the contactId and grab the first message (the latest one)
-      {
-        $group: {
-          _id: "$contactId",
-          lastMessage: { $first: "$$ROOT" },
-          unreadCount: {
-            $sum: {
-              $cond: [
-                {
-                  $and: [
-                    { $eq: ["$receiver", userId] },
-                    { $eq: ["$isRead", false] }, // Assumes you have an isRead field
-                  ],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-        },
-      },
-      // 5. Look up user details for the contact
-      {
-        $lookup: {
-          from: "users", // Must match your actual User collection name in MongoDB
-          localField: "_id",
-          foreignField: "_id",
-          as: "userDetails",
-        },
-      },
-      // 6. Clean up the output
-      { $unwind: "$userDetails" },
-      {
-        $project: {
-          _id: 0,
-          contact: {
-            _id: "$userDetails._id",
-            first_name: "$userDetails.first_name",
-            last_name: "$userDetails.last_name",
-            username: "$userDetails.username",
-            email: "$userDetails.email",
-            avatar: "$userDetails.avatar",
-          },
-          lastMessage: {
-            content: "$lastMessage.content",
-            createdAt: "$lastMessage.createdAt",
-            sender: "$lastMessage.sender",
-            receiver: "$lastMessage.receiver",
-          },
-          unreadCount: 1,
-        },
-      },
-
-      // 7. Final sort to ensure the conversation with the newest message is on top
-      { $sort: { "lastMessage.createdAt": -1 } },
-    ]);
-=======
 const getConversations = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -238,7 +99,6 @@ const getConversations = async (req, res) => {
         "ranked_messages.unread_count",
       )
       .orderBy("ranked_messages.created_at", "desc");
->>>>>>> payment
 
     res.json({
       success: true,
@@ -246,18 +106,10 @@ const getConversations = async (req, res) => {
       conversations,
     });
   } catch (err) {
-<<<<<<< HEAD
-    console.error("getConversations aggregation error:", err);
-    res.status(500).json({
-      success: false,
-      msg: "Failed to fetch conversations",
-    });
-=======
     console.error("getConversations error:", err);
     res
       .status(500)
       .json({ success: false, msg: "Failed to fetch conversations" });
->>>>>>> payment
   }
 };
 
@@ -278,26 +130,6 @@ const getUsersChatHistoryForAi = async (req, res) => {
       return res.status(404).json({ msg: "One or both users not found" });
     }
 
-<<<<<<< HEAD
-    // if (!u1.smartReplyEnabled || !u2.smartReplyEnabled) {
-    //   return res.status(403).json({
-    //     msg: "Smart reply not enabled by both users",
-    //   });
-    // }
-
-    const messages = await Message.find({
-      $or: [
-        { sender: user1, receiver: user2 },
-        { sender: user2, receiver: user1 },
-      ],
-    }).sort({ timestamp: 1 });
-
-    //return res.json({ messages });
-    return res.status(200).json({
-      success: true,
-      data: messages,
-    });
-=======
     const messages = await knex("messages")
       .where(function () {
         this.where({ sender_id: user1, receiver_id: user2 }).orWhere({
@@ -308,7 +140,6 @@ const getUsersChatHistoryForAi = async (req, res) => {
       .orderBy("created_at", "asc");
 
     return res.status(200).json({ success: true, data: messages });
->>>>>>> payment
   } catch (err) {
     console.error("getUsersChatHistoryForAi error:", err);
     res.status(500).json({ msg: "Server error" });

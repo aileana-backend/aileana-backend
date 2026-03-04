@@ -1,4 +1,3 @@
-// src/modules/tradebits/tradebits.controller.js
 const TradebitService = require("../wallet/services/tradebits.service");
 
 const calculate = async (req, res, next) => {

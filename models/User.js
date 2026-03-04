@@ -35,10 +35,6 @@ const UserSchema = new mongoose.Schema({
   verified: { type: Boolean, default: false },
 
   smartReplyEnabled: { type: Boolean, default: false },
-<<<<<<< HEAD
-  store: { type: mongoose.Schema.Types.ObjectId, ref: "Store" },
-  createdAt: { type: Date, default: Date.now },
-=======
 
   bvn: {
     type: String,
@@ -101,7 +97,6 @@ const UserSchema = new mongoose.Schema({
   },
 
   store: { type: mongoose.Schema.Types.ObjectId, ref: "Store" },
->>>>>>> payment
   otp: { type: String },
   otpType: {
     type: String,

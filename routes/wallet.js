@@ -24,6 +24,7 @@ const {
   tradebitTransaction,
   getTradebitHistory,
 } = require("../controllers/walletController");
+const { initiatePurchase, confirmPurchase } = require("../controllers/tradebitsController.js")
 const router = express.Router();
 const upload = require("../middleware/upload");
 
@@ -58,6 +59,8 @@ router.get("/tradebits-balance", auth, getTradebitsBalance);
 router.post("/send-tradebits", auth, transferTradebits);
 router.post("/preview-tradebits-fee", auth, previewTradebitFee);
 router.get("/tradebits/history", auth, getTradebitHistory);
+router.post("/tradebits/buy/initiate", auth, initiatePurchase);
+router.post("/tradebits/buy/confirm", auth, confirmPurchase);
 
 router.get("/tradebits/:reference", auth, tradebitTransaction);
 router.get("/transfer-status/:reference", auth, getTransferStatus);

@@ -1,19 +1,10 @@
 const { Types } = require("mongoose");
-<<<<<<< HEAD
-const {
-  TransactionFlow,
-  TransactionStatus,
-  TransactionType,
-} = require("../../generated/prisma");
-const { prismaConn, prismadb } = require("../../config/prisma.config");
-=======
 // const {
 //   TransactionFlow,
 //   TransactionStatus,
 //   TransactionType,
 // } = require("../../generated/prisma");
 // const { prismaConn, prismadb } = require("../../config/prisma.config");
->>>>>>> payment
 
 class TransactionService {
   /**
