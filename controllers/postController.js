@@ -1,39 +1,10 @@
 const Post = require("../models/Post");
 const User = require("../models/User");
 const { uploadBufferToCloudinary } = require("../helpers/cloudUpload");
-const { v4: uuidv4 } = require("uuid");
-// const createPost = async (req, res) => {
-//   try {
-//     const { type, content } = req.body;
-//     console.log("Incoming files:", req.files);
-//     console.log("Body content:", req.body);
+//const { v4: uuidv4 } = require("uuid");
 
-//     if (!content && (!req.files || req.files.length === 0)) {
-//       return res.status(400).json({ message: "Content or media is required." });
-//     }
 
-//     const media = (req.files || []).map((file) => ({
-//       url: file.path,
-//       type: file.mimetype.startsWith("image")
-//         ? "image"
-//         : file.mimetype.startsWith("video")
-//         ? "video"
-//         : "audio",
-//     }));
 
-//     const post = await Post.create({
-//       user: req.user.id,
-//       type,
-//       content,
-//       media,
-//     });
-
-//     res.status(201).json({ message: "Post created successfully", post });
-//   } catch (error) {
-//     console.error("Create Post Error:", error);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// };
 const createPost = async (req, res) => {
   try {
     const { type, content } = req.body;
