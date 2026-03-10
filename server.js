@@ -67,13 +67,11 @@ function getLoggerForStatusCode(statusCode) {
 app.use((req, res, next) => {
   res.on("finish", () => {
     const logger = getLoggerForStatusCode(res.statusCode);
-
     const safeBody = sanitizeBody(req.body);
+    const userId = req.user?.id || "unauthenticated";
 
     logger(
-      `[${new Date().toISOString()}] ${req.method} ${
-        req.originalUrl
-      } ${JSON.stringify(safeBody)} ${res.statusCode}`,
+      `[${new Date().toISOString()}, user:${userId}  ] ${req.method} ${req.originalUrl} ${JSON.stringify(safeBody)} ${res.statusCode}`,
     );
   });
 

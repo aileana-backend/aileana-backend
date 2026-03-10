@@ -9,6 +9,7 @@ const Store = require("../models/Store");
 const knex = require("../config/pg");
 const walletService = require("../services/wallet/wallet.service");
 const sendEmail = require("../utils/sendMail");
+
 const generateOTPTemplate = (firstName, otp) => {
   return `
 <!DOCTYPE html>
@@ -95,6 +96,34 @@ const generateOTPTemplate = (firstName, otp) => {
 </body>
 </html>
 `;
+};
+
+const getUser = async (req, res) => {
+  try {
+    const user = await knex("users")
+      .where({ id: req.user.id })
+      .select("*")
+      .first();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "User retrieved successfully",
+      data: user,
+    });
+  } catch (err) {
+    console.error("getUser error:", err);
+    res.status(500).json({
+      success: false,
+      message: err.message || "Server error",
+    });
+  }
 };
 
 const signup = async (req, res) => {
@@ -1056,5 +1085,5 @@ module.exports = {
   updateProfile,
   getUserLastSeen,
   getOnlineUsers,
-  generateOTPTemplate,
+  generateOTPTemplate, getUser
 };
