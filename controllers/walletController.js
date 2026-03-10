@@ -148,6 +148,8 @@ const validateBvn = async (req, res, next) => {
 const verifyNairaWalletKycOtp = async (req, res, next) => {
   try {
     const { email, otp } = req.body;
+      console.log(user.otp, otp)
+      console.log(user.otp === otp)
 
     const user = await knex("users").where({ email }).first();
     if (!user) {
@@ -159,8 +161,6 @@ const verifyNairaWalletKycOtp = async (req, res, next) => {
     if (user.otp !== otp) {
       return res.status(400).json({ success: false, message: "Incorrect OTP" });
     }
-
-    console.log(user.otp, otp)
 
     // Check OTP expiry
     if (user.otp_expires && new Date() > new Date(user.otp_expires)) {
