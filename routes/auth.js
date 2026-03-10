@@ -25,6 +25,7 @@ const {
   checkUsernameAvailability,
   getOnlineUsers,
   getUserLastSeen,
+  getUser,
 } = require("../controllers/authController");
 const {
   signupRules,
@@ -33,6 +34,7 @@ const {
 } = require("../middleware/validators");
 const { auth } = require("../middleware/auth");
 
+router.get("/user", auth, getUser);
 router.post("/signup", signupRules, validate, signup);
 router.post("/login", loginRules, validate, loginLimiter, login);
 
