@@ -148,8 +148,6 @@ const validateBvn = async (req, res, next) => {
 const verifyNairaWalletKycOtp = async (req, res, next) => {
   try {
     const { email, otp } = req.body;
-      console.log(user.otp, otp)
-      console.log(user.otp === otp)
 
     const user = await knex("users").where({ email }).first();
     if (!user) {
@@ -157,6 +155,9 @@ const verifyNairaWalletKycOtp = async (req, res, next) => {
         .status(404)
         .json({ success: false, message: "User not found" });
     }
+
+    console.log(user.otp, otp);
+    console.log(user.otp === otp);
 
     if (user.otp !== otp) {
       return res.status(400).json({ success: false, message: "Incorrect OTP" });
