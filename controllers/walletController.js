@@ -160,6 +160,8 @@ const verifyNairaWalletKycOtp = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Incorrect OTP" });
     }
 
+    console.log(user.otp, otp)
+
     // Check OTP expiry
     if (user.otp_expires && new Date() > new Date(user.otp_expires)) {
       return res
