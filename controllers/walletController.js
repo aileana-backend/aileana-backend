@@ -57,9 +57,10 @@ const transferfunds = async (req, res, next) => {
 
 const getAllCreatedWallets = async (req, res, next) => {
   try {
+    const { currency } = req.query;
     const { success, status, message, data } = await new walletService(
       req.user,
-    ).getAllCreatedWallets();
+    ).getAllCreatedWallets(currency);
     if (!success)
       return res.status(status).json({ success: false, message, data });
     res.json({ success, message, data });

@@ -510,22 +510,53 @@ class WalletService {
     };
   }
 
-  async initiateNairaWalletKYC(payload) {
-    const { address, city, state, phone_number, bvn } = payload;
+async initiateNairaWalletKYC(payload) {
+  const { address, city, state, phone_number, bvn } = payload;
 
-    const user = await knex("users")
-      .where({ id: this.user.id }) // UUID
-      .first();
+  const user = await knex("users").where({ id: this.user.id }).first();
 
-    if (!user) {
-      return {
-        success: false,
-        status: 404,
-        message: "User not found",
-      };
-    }
+  if (!user) {
+    return { success: false, status: 404, message: "User not found" };
+  }
 
-    await knex("users").where({ id: this.user.id }).update({
+  const walletExist = await knex("wallets")
+    .where({ user_id: this.user.id, status: "active" })
+    .first();
+
+  if (walletExist) {
+    return { success: false, status: 409, message: "User already has an active NGN wallet" };
+  }
+
+  // Monnify call BEFORE transaction (external API can't be rolled back)
+  const walletPayload = {
+    accountName: `${user.first_name} ${user.last_name}`,
+    customerName: `${user.first_name} ${user.last_name}`,
+    customerEmail: user.email,
+    currencyCode: "NGN",
+    contractCode: contractCode,
+    accountReference: `AILEANA_${user.id}`,
+    getAllAvailableBanks: true,
+    bvn,
+    currency: "NGN",
+  };
+
+  const response = await monnifyService.createVirtualAccount(walletPayload);
+
+  if (!response.requestSuccessful) {
+    throw new Error("Could not create wallet");
+  }
+
+  const { accounts } = response.responseBody;
+  if (!Array.isArray(accounts) || accounts.length === 0) {
+    throw new Error("Could not create wallet");
+  }
+
+  const walletData = accounts[0];
+
+  // All DB writes inside transaction — rolls back if anything fails
+  return await knex.transaction(async (trx) => {
+    // Update user info
+    await trx("users").where({ id: this.user.id }).update({
       address,
       city,
       state,
@@ -534,35 +565,8 @@ class WalletService {
       updated_at: knex.fn.now(),
     });
 
-    // 3️⃣ Prepare Monnify payload
-    const walletPayload = {
-      accountName: `${user.first_name} ${user.last_name}`,
-      customerName: `${user.first_name} ${user.last_name}`,
-      customerEmail: user.email,
-      currencyCode: "NGN",
-      contractCode: contractCode,
-      accountReference: `AILEANA_${user.id}`,
-      getAllAvailableBanks: true,
-      bvn,
-      currency: "NGN",
-    };
-
-    const response = await monnifyService.createVirtualAccount(walletPayload);
-
-    if (!response.requestSuccessful) {
-      throw new Error("Could not create wallet");
-    }
-
-    const { accounts } = response.responseBody;
-
-    if (!Array.isArray(accounts) || accounts.length === 0) {
-      throw new Error("Could not create wallet");
-    }
-
-    const walletData = accounts[0];
-
-    // 4️⃣ Insert wallet
-    const [wallet] = await knex("wallets")
+    // Insert wallet
+    const [wallet] = await trx("wallets")
       .insert({
         user_id: user.id,
         currency_code: "NGN",
@@ -579,21 +583,19 @@ class WalletService {
       })
       .returning("*");
 
-    if (!wallet) {
-      throw new Error("Could not create wallet");
-    }
+    if (!wallet) throw new Error("Could not create wallet");
 
-    // 5️⃣ Send OTP
+    // Save OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const subject = "Naira wallet KYC verification OTP";
-    const htmlContent = generateOTPTemplate(user.first_name, otp);
-    await knex("users").where({ id: this.user.id }).update({
+    await trx("users").where({ id: this.user.id }).update({
       otp,
       otp_type: "kyc-otp",
-      //kyc_otp_expires_at: otpExpiresAt,
       updated_at: knex.fn.now(),
     });
 
+    // Send email AFTER all DB writes succeed
+    const subject = "Naira wallet KYC verification OTP";
+    const htmlContent = generateOTPTemplate(user.first_name, otp);
     await sendEmail(user.email, subject, htmlContent);
 
     return {
@@ -602,7 +604,8 @@ class WalletService {
       message: "Verification OTP sent to your mail",
       data: null,
     };
-  }
+  });
+}
 
   async transferFunds(params) {
     const {
@@ -627,12 +630,42 @@ class WalletService {
     };
   }
 
-  async getAllCreatedWallets() {
-    const wallets = await knex("wallets").where({
+  // async getAllCreatedWallets() {
+  //   const wallets = await knex("wallets").where({
+  //     user_id: this.user.id,
+  //     is_deleted: false,
+  //     status: "active",
+  //   });
+
+  //   if (!wallets || wallets.length === 0) {
+  //     return {
+  //       success: true,
+  //       status: 200,
+  //       message: "No wallets found",
+  //       data: [],
+  //     };
+  //   }
+
+  //   return {
+  //     success: true,
+  //     status: 200,
+  //     message: "Wallets retrieved successfully",
+  //     data: wallets,
+  //   };
+  // }
+
+  async getAllCreatedWallets(currency = null) {
+    const query = knex("wallets").where({
       user_id: this.user.id,
       is_deleted: false,
       status: "active",
     });
+
+    if (currency) {
+      query.where({ currency_code: currency.toUpperCase() });
+    }
+
+    const wallets = await query;
 
     if (!wallets || wallets.length === 0) {
       return {
@@ -1534,41 +1567,45 @@ class WalletService {
   }
 
   async getTradebitHistory() {
-  try {
-    const userId = this.user.id;
+    try {
+      const userId = this.user.id;
 
-    const history = await knex("transactions")
-      .where(function() {
-        this.where("sender_id", userId).orWhere("recipient_id", userId);
-      })
-      .orderBy("created_at", "desc") // Latest transactions at the top
-      .select("*");
+      const history = await knex("transactions")
+        .where(function () {
+          this.where("sender_id", userId).orWhere("recipient_id", userId);
+        })
+        .orderBy("created_at", "desc") // Latest transactions at the top
+        .select("*");
 
-    // Format the list for the UI labels
-    const formattedHistory = history.map(tx => {
-      const isCredit = tx.recipient_id === userId;
-      
+      // Format the list for the UI labels
+      const formattedHistory = history.map((tx) => {
+        const isCredit = tx.recipient_id === userId;
+
+        return {
+          id: tx.id,
+          reference: tx.reference,
+          // Match Figma labels: "Buy Tradebits" or "Transferred Tradebits"
+          title: tx.type === "BUY" ? "Buy Tradebits" : "Transferred Tradebits",
+          amount: `${isCredit ? "+" : "-"} ${tx.amount} coins`,
+          color: isCredit ? "green" : "red", // For the frontend +/- styling
+          date: new Intl.DateTimeFormat("en-NG", {
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          }).format(new Date(tx.created_at)),
+        };
+      });
+
+      return { success: true, status: 200, data: formattedHistory };
+    } catch (err) {
       return {
-        id: tx.id,
-        reference: tx.reference,
-        // Match Figma labels: "Buy Tradebits" or "Transferred Tradebits"
-        title: tx.type === "BUY" ? "Buy Tradebits" : "Transferred Tradebits",
-        amount: `${isCredit ? '+' : '-'} ${tx.amount} coins`,
-        color: isCredit ? "green" : "red", // For the frontend +/- styling
-        date: new Intl.DateTimeFormat("en-NG", {
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit"
-        }).format(new Date(tx.created_at))
+        success: false,
+        status: 500,
+        message: "Failed to fetch history",
       };
-    });
-
-    return { success: true, status: 200, data: formattedHistory };
-  } catch (err) {
-    return { success: false, status: 500, message: "Failed to fetch history" };
+    }
   }
-}
 }
 
 module.exports = WalletService;
