@@ -510,102 +510,106 @@ class WalletService {
     };
   }
 
-async initiateNairaWalletKYC(payload) {
-  const { address, city, state, phone_number, bvn } = payload;
+  async initiateNairaWalletKYC(payload) {
+    const { address, city, state, phone_number, bvn } = payload;
 
-  const user = await knex("users").where({ id: this.user.id }).first();
+    const user = await knex("users").where({ id: this.user.id }).first();
 
-  if (!user) {
-    return { success: false, status: 404, message: "User not found" };
-  }
+    if (!user) {
+      return { success: false, status: 404, message: "User not found" };
+    }
 
-  const walletExist = await knex("wallets")
-    .where({ user_id: this.user.id, status: "active" })
-    .first();
+    const walletExist = await knex("wallets")
+      .where({ user_id: this.user.id, status: "active" })
+      .first();
 
-  if (walletExist) {
-    return { success: false, status: 409, message: "User already has an active NGN wallet" };
-  }
+    if (walletExist) {
+      return {
+        success: false,
+        status: 409,
+        message: "User already has an active NGN wallet",
+      };
+    }
 
-  // Monnify call BEFORE transaction (external API can't be rolled back)
-  const walletPayload = {
-    accountName: `${user.first_name} ${user.last_name}`,
-    customerName: `${user.first_name} ${user.last_name}`,
-    customerEmail: user.email,
-    currencyCode: "NGN",
-    contractCode: contractCode,
-    accountReference: `AILEANA_${user.id}`,
-    getAllAvailableBanks: true,
-    bvn,
-    currency: "NGN",
-  };
-
-  const response = await monnifyService.createVirtualAccount(walletPayload);
-
-  if (!response.requestSuccessful) {
-    throw new Error("Could not create wallet");
-  }
-
-  const { accounts } = response.responseBody;
-  if (!Array.isArray(accounts) || accounts.length === 0) {
-    throw new Error("Could not create wallet");
-  }
-
-  const walletData = accounts[0];
-
-  // All DB writes inside transaction — rolls back if anything fails
-  return await knex.transaction(async (trx) => {
-    // Update user info
-    await trx("users").where({ id: this.user.id }).update({
-      address,
-      city,
-      state,
-      phone_number,
+    // Monnify call BEFORE transaction (external API can't be rolled back)
+    const walletPayload = {
+      accountName: `${user.first_name} ${user.last_name}`,
+      customerName: `${user.first_name} ${user.last_name}`,
+      customerEmail: user.email,
+      currencyCode: "NGN",
+      contractCode: contractCode,
+      accountReference: `AILEANA_${user.id}`,
+      getAllAvailableBanks: true,
       bvn,
-      updated_at: knex.fn.now(),
-    });
-
-    // Insert wallet
-    const [wallet] = await trx("wallets")
-      .insert({
-        user_id: user.id,
-        currency_code: "NGN",
-        wallet_type: "FIAT",
-        wallet_address: walletData.accountNumber,
-        wallet_address_name: walletData.accountName,
-        wallet_address_id: walletData.bankCode,
-        bank_name: walletData.bankName,
-        wallet_address_tag: "",
-        status: "active",
-        balance: "0.0",
-        created_at: knex.fn.now(),
-        updated_at: knex.fn.now(),
-      })
-      .returning("*");
-
-    if (!wallet) throw new Error("Could not create wallet");
-
-    // Save OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    await trx("users").where({ id: this.user.id }).update({
-      otp,
-      otp_type: "kyc-otp",
-      updated_at: knex.fn.now(),
-    });
-
-    // Send email AFTER all DB writes succeed
-    const subject = "Naira wallet KYC verification OTP";
-    const htmlContent = generateOTPTemplate(user.first_name, otp);
-    await sendEmail(user.email, subject, htmlContent);
-
-    return {
-      success: true,
-      status: 200,
-      message: "Verification OTP sent to your mail",
-      data: null,
+      currency: "NGN",
     };
-  });
-}
+
+    const response = await monnifyService.createVirtualAccount(walletPayload);
+
+    if (!response.requestSuccessful) {
+      throw new Error("Could not create wallet");
+    }
+
+    const { accounts } = response.responseBody;
+    if (!Array.isArray(accounts) || accounts.length === 0) {
+      throw new Error("Could not create wallet");
+    }
+
+    const walletData = accounts[0];
+
+    // All DB writes inside transaction — rolls back if anything fails
+    return await knex.transaction(async (trx) => {
+      // Update user info
+      await trx("users").where({ id: this.user.id }).update({
+        address,
+        city,
+        state,
+        phone_number,
+        bvn,
+        updated_at: knex.fn.now(),
+      });
+
+      // Insert wallet
+      const [wallet] = await trx("wallets")
+        .insert({
+          user_id: user.id,
+          currency_code: "NGN",
+          wallet_type: "FIAT",
+          wallet_address: walletData.accountNumber,
+          wallet_address_name: walletData.accountName,
+          wallet_address_id: walletData.bankCode,
+          bank_name: walletData.bankName,
+          wallet_address_tag: "",
+          status: "active",
+          balance: "0.0",
+          created_at: knex.fn.now(),
+          updated_at: knex.fn.now(),
+        })
+        .returning("*");
+
+      if (!wallet) throw new Error("Could not create wallet");
+
+      // Save OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      await trx("users").where({ id: this.user.id }).update({
+        otp,
+        otp_type: "kyc-otp",
+        updated_at: knex.fn.now(),
+      });
+
+      // Send email AFTER all DB writes succeed
+      const subject = "Naira wallet KYC verification OTP";
+      const htmlContent = generateOTPTemplate(user.first_name, otp);
+      await sendEmail(user.email, subject, htmlContent);
+
+      return {
+        success: true,
+        status: 200,
+        message: "Verification OTP sent to your mail",
+        data: null,
+      };
+    });
+  }
 
   async transferFunds(params) {
     const {
@@ -629,30 +633,6 @@ async initiateNairaWalletKYC(payload) {
       },
     };
   }
-
-  // async getAllCreatedWallets() {
-  //   const wallets = await knex("wallets").where({
-  //     user_id: this.user.id,
-  //     is_deleted: false,
-  //     status: "active",
-  //   });
-
-  //   if (!wallets || wallets.length === 0) {
-  //     return {
-  //       success: true,
-  //       status: 200,
-  //       message: "No wallets found",
-  //       data: [],
-  //     };
-  //   }
-
-  //   return {
-  //     success: true,
-  //     status: 200,
-  //     message: "Wallets retrieved successfully",
-  //     data: wallets,
-  //   };
-  // }
 
   async getAllCreatedWallets(currency = null) {
     const query = knex("wallets").where({
