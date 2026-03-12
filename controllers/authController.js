@@ -112,10 +112,25 @@ const getUser = async (req, res) => {
       });
     }
 
+    // Fetch both wallets in one query using whereIn
+    const wallets = await knex("wallets")
+      .where({ user_id: user.id })
+      .whereIn("currency_code", ["USD", "NGN"])
+      .select("currency_code", "status");
+
+    // Shape into { USD: { status: '...' }, NGN: { status: '...' } }
+    const walletStatus = wallets.reduce((acc, wallet) => {
+      acc[wallet.currency_code] = { status: wallet.status };
+      return acc;
+    }, {});
+
     return res.status(200).json({
       success: true,
       message: "User retrieved successfully",
-      data: user,
+      data: {
+        user,
+        wallets: walletStatus,
+      }
     });
   } catch (err) {
     console.error("getUser error:", err);
@@ -215,43 +230,6 @@ const signup = async (req, res) => {
     res.status(400).json({ error: err.message || "Server error" });
   }
 };
-
-// const login = async (req, res, next) => {
-//   try {
-//     const { email, password } = req.body;
-
-//     const user = await knex("users")
-//       .where({ email: email.toLowerCase() })
-//       .first();
-//     if (!user) return res.status(400).json({ msg: "Invalid credentials" });
-
-//     const wallet = await knex("wallets")
-//       .where({ user_id: user.id })
-//       .andWhere({ currency_code: "USD" })
-//       .andWhere({ currency_code: "NGN" })
-//       .select("status");
-
-//     console.log("User wallet during login:", wallet);
-
-//     const isMatch = await bcrypt.compare(password, user.password);
-//     if (!isMatch) return res.status(400).json({ msg: "Invalid credentials" });
-
-//     const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
-//       expiresIn: process.env.JWT_EXPIRES_IN || "7d",
-//     });
-
-//     await logActivity({
-//       userId: user.id,
-//       action: "login",
-//       description: "User logged in successfully.",
-//       req,
-//     });
-
-//     res.json({ token, user });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
 
 const login = async (req, res, next) => {
   try {
@@ -1085,5 +1063,6 @@ module.exports = {
   updateProfile,
   getUserLastSeen,
   getOnlineUsers,
-  generateOTPTemplate, getUser
+  generateOTPTemplate,
+  getUser,
 };
