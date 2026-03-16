@@ -1,9 +1,7 @@
 require("dotenv").config();
-
 const express = require("express");
 const http = require("http");
 const cors = require("cors");
-
 const passport = require("passport");
 require("./config/passport");
 const { Server } = require("socket.io");
@@ -19,12 +17,11 @@ const categoryRoutes = require("./routes/category");
 const postRoutes = require("./routes/post");
 const productRoutes = require("./routes/product");
 const webhookRoute = require("./routes/webhook");
+const utilitiesRoutes = require("./routes/utilities");
+const credixRoutes = require("./routes/credix");
 const { verifySocketToken } = require("./middleware/auth");
 const Message = require("./models/Message");
 const User = require("./models/User");
-//const monnifyService = require("./services/monnify/monnify.service");
-//const walletService = require("./wallet/services/wallet.service");
-const { uniqueId } = require("./utils/string.util");
 
 const app = express();
 const server = http.createServer(app);
@@ -90,8 +87,9 @@ app.use("/api", categoryRoutes);
 app.use("/api", productRoutes);
 app.use("/api", callsRoutes);
 app.use("/api", postRoutes);
-app.use("/api", authRoutes);
-app.use("/api", tradebitsRoutes);
+app.use("/api/tradebits", tradebitsRoutes);
+app.use("/api", utilitiesRoutes);
+app.use("/api", credixRoutes);
 
 // webhook route
 app.use("/api", webhookRoute);
@@ -137,9 +135,9 @@ io.on("connection", (socket) => {
 
       await msg.save();
 
-      // Emit once per user via rooms
+      // Send to receiver's room and echo back only to the sending socket
       io.to(`user_${receiver}`).emit("private_message", msg);
-      io.to(`user_${userId}`).emit("private_message", msg);
+      socket.emit("private_message", msg);
     } catch (err) {
       console.error("socket message error", err);
       socket.emit("error", { msg: "Message sending failed" });

@@ -520,7 +520,7 @@ class WalletService {
     }
 
     const walletExist = await knex("wallets")
-      .where({ user_id: this.user.id, status: "active" })
+      .where({ user_id: this.user.id, status: "active", currency_code: "NGN" })
       .first();
 
     if (walletExist) {
@@ -528,6 +528,7 @@ class WalletService {
         success: false,
         status: 409,
         message: "User already has an active NGN wallet",
+        data: walletExist,
       };
     }
 
@@ -1246,13 +1247,11 @@ class WalletService {
         })
         .first();
 
-      console.log(this.user.id);
-
       if (!wallet) {
         return { success: false, status: 404, message: "Wallet not found" };
       }
 
-      if (!wallet.account_number) {
+      if (!wallet.wallet_address) {
         return {
           success: false,
           status: 400,
@@ -1264,8 +1263,8 @@ class WalletService {
       // Data to encode in QR
       const qrData = JSON.stringify({
         account_name: `${this.user.first_name} ${this.user.last_name}`,
-        account_number: wallet.account_number,
-        bank_name: wallet.bank_name || "Alleana Wallet",
+        account_number: wallet.wallet_address,
+        bank_name: wallet.bank_name,
       });
 
       // Generate QR code as base64 image

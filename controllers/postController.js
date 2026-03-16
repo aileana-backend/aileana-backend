@@ -1,9 +1,8 @@
 const Post = require("../models/Post");
 const User = require("../models/User");
 const { uploadBufferToCloudinary } = require("../helpers/cloudUpload");
-//const { v4: uuidv4 } = require("uuid");
-
-
+const { v4: uuidv4 } = require("uuid");
+const credixService = require("../wallet/services/credix.service");
 
 const createPost = async (req, res) => {
   try {
@@ -22,6 +21,9 @@ const createPost = async (req, res) => {
       media: [],
       uploadStatus: "processing",
     });
+
+    // Award credits for creating a post (fire and forget)
+    credixService.awardCredits(req.user.id, "CREATE_POST", post._id).catch(() => {});
 
     // respond immediately
     res.status(202).json({
@@ -51,21 +53,21 @@ const createPost = async (req, res) => {
             const resource_type = file.mimetype.startsWith("image")
               ? "image"
               : file.mimetype.startsWith("video")
-              ? "video"
-              : "raw"; // audio/raw fallback
+                ? "video"
+                : "raw"; // audio/raw fallback
 
             // use uuid to avoid collisions
             const publicId = `${Date.now()}-${uuidv4()}`;
 
             console.log(
-              `Uploading ${file.originalname} (size=${file.size}) to Cloudinary...`
+              `Uploading ${file.originalname} (size=${file.size}) to Cloudinary...`,
             );
 
             const result = await uploadBufferToCloudinary(
               file.buffer,
               publicId,
               resource_type,
-              "posts_media"
+              "posts_media",
             );
 
             mediaArr.push({
@@ -74,8 +76,8 @@ const createPost = async (req, res) => {
                 resource_type === "image"
                   ? "image"
                   : resource_type === "video"
-                  ? "video"
-                  : "audio",
+                    ? "video"
+                    : "audio",
               // optionally set duration if returned (for videos)
               duration: result.duration || undefined,
             });
@@ -91,7 +93,7 @@ const createPost = async (req, res) => {
           uploadStatus: "completed",
         });
         console.log(
-          `Background: Post ${post._id} updated with ${mediaArr.length} media items.`
+          `Background: Post ${post._id} updated with ${mediaArr.length} media items.`,
         );
       } catch (bgErr) {
         console.error("Background processing error for post", post._id, bgErr);
@@ -159,10 +161,12 @@ const toggleLike = async (req, res) => {
 
     if (alreadyLiked) {
       post.likes = post.likes.filter(
-        (id) => id.toString() !== req.user.id.toString()
+        (id) => id.toString() !== req.user.id.toString(),
       );
     } else {
       post.likes.push(req.user.id);
+      // Award credits only when liking (not unliking)
+      credixService.awardCredits(req.user.id, "LIKE_POST", `like-${req.user.id}-${post._id}`).catch(() => {});
     }
 
     await post.save();
@@ -200,6 +204,10 @@ const addComment = async (req, res) => {
 
     post.comments.push(comment);
     await post.save();
+
+    // Award credits for commenting (fire and forget)
+    const savedComment = post.comments[post.comments.length - 1];
+    credixService.awardCredits(req.user.id, "COMMENT", savedComment._id).catch(() => {});
 
     res.status(201).json({ message: "Comment added", comment });
   } catch (error) {

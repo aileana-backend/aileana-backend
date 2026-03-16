@@ -324,7 +324,7 @@ const getReceiveFundsDetails = async (req, res, next) => {
     if (!success)
       return res.status(status).json({ success: false, message, data });
 
-    return res.status(result.status).json(result);
+    return res.status(status).json({ success, message, data });
   } catch (error) {
     next(error);
   }
