@@ -15,8 +15,7 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd /home/ubuntu/aileana-api   # ← your app folder
+            cd /home/ubuntu/aileana-backend
             git pull origin main
             npm install --production
             pm2 reload aileana-api --update-env
-
