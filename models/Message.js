@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-const { encrypt, decrypt } = require("../utils/crypto");
 const MessageSchema = new mongoose.Schema(
   {
     sender: {

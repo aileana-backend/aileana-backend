@@ -7,25 +7,21 @@ const {
   toggleSmartReply,
   getConversations,
 } = require("../controllers/messageController");
-const Message = require("../models/Message");
+const knex = require("../config/pg");
 router.get("/conversations", auth, getConversations);
 
 router.get("/messages/:userId", auth, getChatHistory);
 router.get("/messages/ai/:user1/:user2", auth, getUsersChatHistoryForAi);
 
-
 router.post("/messages", auth, async (req, res) => {
   try {
-    const { receiver, content } = req.body;
-    const msg = new Message({
-      sender: req.user._id,
-      receiver,
-      content,
-    });
-    await msg.save();
+    const receiver_id = req.body.receiver_id ;
+    const { content } = req.body;
+    const [msg] = await knex("messages")
+      .insert({ sender_id: req.user.id, receiver_id, content, is_read: false })
+      .returning("*");
 
-    // emit in real-time too
-    //req.io.to(`user_${receiver}`).emit("private_message", msg);
+    req.io.to(`user_${receiver_id}`).emit("private_message", msg);
 
     return res.json(msg);
   } catch (err) {

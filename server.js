@@ -20,8 +20,7 @@ const webhookRoute = require("./routes/webhook");
 const utilitiesRoutes = require("./routes/utilities");
 const credixRoutes = require("./routes/credix");
 const { verifySocketToken } = require("./middleware/auth");
-const Message = require("./models/Message");
-const User = require("./models/User");
+const knex = require("./config/pg");
 
 const app = express();
 const server = http.createServer(app);
@@ -127,15 +126,10 @@ io.on("connection", (socket) => {
         return socket.emit("error", { msg: "Recipient and content required" });
       }
 
-      const msg = new Message({
-        sender: userId,
-        receiver,
-        content,
-      });
+      const [msg] = await knex("messages")
+        .insert({ sender_id: userId, receiver_id: receiver, content, is_read: false })
+        .returning("*");
 
-      await msg.save();
-
-      // Send to receiver's room and echo back only to the sending socket
       io.to(`user_${receiver}`).emit("private_message", msg);
       socket.emit("private_message", msg);
     } catch (err) {
@@ -146,17 +140,19 @@ io.on("connection", (socket) => {
 
   socket.on("message_read", async (messageId) => {
     try {
-      await Message.findByIdAndUpdate(messageId, { read: true });
+      await knex("messages").where({ id: messageId }).update({ is_read: true });
     } catch (err) {
       console.error("seen update error", err);
     }
   });
+
   socket.broadcast.emit("user_online", { userId });
   socket.on("disconnect", async () => {
     try {
-      await User.findByIdAndUpdate(socket.userId, {
-        isOnline: false,
-        lastSeen: new Date(),
+      await knex("users").where({ id: socket.userId }).update({
+        is_online: false,
+        last_seen: new Date(),
+        updated_at: new Date(),
       });
 
       socket.broadcast.emit("user_offline", { userId });

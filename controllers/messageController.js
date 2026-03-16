@@ -39,7 +39,7 @@ const getConversations = async (req, res) => {
     const userId = req.user.id;
 
     // Get the latest message per unique contact using a subquery
-    const conversations = await knex
+    const query = knex
       .with("ranked_messages", (qb) => {
         qb.from("messages")
           .where("sender_id", userId)
@@ -100,6 +100,13 @@ const getConversations = async (req, res) => {
       )
       .orderBy("ranked_messages.created_at", "desc");
 
+    const conversations = await query;
+    console.log(
+      "getConversations userId:",
+      userId,
+      "count:",
+      conversations.length,
+    );
     res.json({
       success: true,
       count: conversations.length,

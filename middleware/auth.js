@@ -56,11 +56,6 @@ const verifySocketToken = async (socket) => {
 
   socket.userId = user.id;
   socket.user = user;
-
-  await User.findByIdAndUpdate(user._id, {
-    isOnline: true,
-    lastSeen: new Date(),
-  });
 };
 
 module.exports = { auth, verifySocketToken };
