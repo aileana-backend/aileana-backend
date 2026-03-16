@@ -1,4 +1,5 @@
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 
 module.exports = {
   client: "pg",
@@ -12,6 +13,9 @@ module.exports = {
   pool: { min: 2, max: 10 },
   migrations: {
     tableName: "knex_migrations",
-    directory: "../migrations", // relative path to your migrations folder
+    directory: path.resolve(__dirname, "../migrations"),
+  },
+  seeds: {
+    directory: path.resolve(__dirname, "../seeds"),
   },
 };

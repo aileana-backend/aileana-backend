@@ -5,6 +5,7 @@ const { encrypt, decryptText } = require("../../utils/encrypter");
 const { Types } = require("mongoose");
 const ledgerService = require("./ledger.service");
 const transactionService = require("./transaction.service");
+const feeService = require("./fee.service");
 const { uniqueId } = require("../../utils/string.util");
 const knex = require("../../config/pg");
 const sendEmail = require("../../utils/sendMail");
@@ -279,6 +280,12 @@ class WalletService {
         .slice(2, 8)
         .toUpperCase()}`;
 
+      // Calculate P2P fee before opening the DB transaction
+      const { feeKey, feeAmount } = await feeService.calculateP2PFee(amount);
+
+      // Sender is debited the full amount + fee
+      const totalDebit = amount + feeAmount;
+
       // Start Knex transaction
       const transactionResult = await knex.transaction(async (trx) => {
         // Lock sender wallet row
@@ -287,7 +294,7 @@ class WalletService {
           .forUpdate()
           .first();
 
-        const senderNewBalance = senderLocked.balance - amount;
+        const senderNewBalance = senderLocked.balance - totalDebit;
         if (senderNewBalance < 0) throw new Error("Insufficient funds");
 
         // Create sender transaction
@@ -300,6 +307,7 @@ class WalletService {
             type: "Withdrawal",
             flow: "Outflow",
             reference: `${baseReference}-DEBIT`,
+            fees: feeAmount,
             status: "Pending",
             description: desc,
           },
@@ -310,11 +318,11 @@ class WalletService {
           .where({ id: senderWallet.id })
           .update({ balance: senderNewBalance });
 
-        // Log ledger debit
+        // Log ledger debit (full debit including fee)
         await ledgerService.logLedgerDebitEntry(trx, {
           walletId: senderWallet.id,
           transactionId: senderTransaction.id,
-          debit: amount,
+          debit: totalDebit,
           prevBalance: senderWallet.balance,
           currBalance: senderNewBalance,
         });
@@ -325,6 +333,7 @@ class WalletService {
           .forUpdate()
           .first();
 
+        // Receiver gets the transfer amount only (not the fee)
         const receiverNewBalance = receiverLocked.balance + amount;
 
         // Create receiver transaction
@@ -356,6 +365,13 @@ class WalletService {
           currBalance: receiverNewBalance,
         });
 
+        // Record the fee in the sender's transaction row
+        if (feeAmount > 0) {
+          await trx("transactions")
+            .where({ id: senderTransaction.id })
+            .update({ fee_amount: feeAmount, fee_key: feeKey });
+        }
+
         return {
           success: true,
           status: 200,
@@ -363,6 +379,7 @@ class WalletService {
           data: {
             senderWallet: senderNewBalance,
             receiverWallet: receiverNewBalance,
+            fee: feeAmount,
           },
         };
       });
