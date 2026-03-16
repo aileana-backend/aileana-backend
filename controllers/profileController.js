@@ -110,7 +110,9 @@ const getUsers = async (req, res) => {
     const offset = (page - 1) * limit;
     const search = req.query.search?.trim();
 
-    const baseQuery = knex("users").whereNot({ id: req.user.id });
+    const baseQuery = knex("users").whereNot({ id: req.user.id }).where({
+      is_deleted: false,
+    });
 
     if (search) {
       baseQuery.where(function () {
@@ -125,7 +127,15 @@ const getUsers = async (req, res) => {
     const total = parseInt(count);
 
     const users = await baseQuery
-      .select("id", "first_name", "last_name", "username", "email", "is_online", "last_seen")
+      .select(
+        "id",
+        "first_name",
+        "last_name",
+        "username",
+        "email",
+        "is_online",
+        "last_seen",
+      )
       .orderBy("first_name", "asc")
       .limit(limit)
       .offset(offset);
