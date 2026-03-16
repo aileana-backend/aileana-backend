@@ -168,21 +168,6 @@ app.use((req, res, next) => {
 
 app.use("/api", messagesRoutes);
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT;
 console.log("PORT", PORT);
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
-
-
-
-
-
-
-
-
-
-// # 1. Run the two new migrations
-// npx knex migrate:latest --knexfile config/knex.config.js
-
-// # 2. Seed the fee table
-// npx knex seed:run --knexfile config/knex.config.js
