@@ -1,7 +1,7 @@
 const Post = require("../models/Post");
 const User = require("../models/User");
 const { uploadBufferToCloudinary } = require("../helpers/cloudUpload");
-const { v4: uuidv4 } = require("uuid");
+// const { v4: uuidv4 } = require("uuid");
 const credixService = require("../wallet/services/credix.service");
 
 const createPost = async (req, res) => {
