@@ -11,6 +11,8 @@ const {
   confirmSend,
   getBalance,
   getTransaction,
+  getReceiveDetails,
+  getHistory,
 } = require("../controllers/tradebitsController");
 
 router.get("/calculate", auth, calculate);
@@ -20,6 +22,8 @@ router.post("/send/preview-fee", auth, previewFee);
 router.post("/send/verify-address", auth, verifyAddress);
 router.post("/send/confirm", auth, confirmSend);
 router.get("/balance", auth, getBalance);
+router.get("/receive", auth, getReceiveDetails);
+router.get("/history", auth, getHistory);
 router.get("/transaction/:reference", auth, getTransaction);
 
 module.exports = router;

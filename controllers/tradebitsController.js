@@ -84,6 +84,24 @@ const getBalance = async (req, res, next) => {
   }
 };
 
+const getReceiveDetails = async (req, res, next) => {
+  try {
+    const data = await TradebitService.getReceiveDetails(req.user.id);
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+const getHistory = async (req, res, next) => {
+  try {
+    const data = await TradebitService.getHistory(req.user.id);
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 const getTransaction = async (req, res, next) => {
   try {
     const { reference } = req.params;
@@ -103,4 +121,6 @@ module.exports = {
   verifyAddress,
   confirmSend,
   getBalance,
+  getReceiveDetails,
+  getHistory,
 };
