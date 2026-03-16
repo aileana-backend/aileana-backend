@@ -66,7 +66,7 @@ const getConversations = async (req, res) => {
                 ORDER BY created_at DESC
               ) AS rn
             `,
-              [userId, userId],
+              [userId],
             ),
             knex.raw(
               `
