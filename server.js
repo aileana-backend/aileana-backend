@@ -19,6 +19,7 @@ const productRoutes = require("./routes/product");
 const webhookRoute = require("./routes/webhook");
 const utilitiesRoutes = require("./routes/utilities");
 const credixRoutes = require("./routes/credix");
+const vendorRoutes = require("./routes/vendor");
 const { verifySocketToken } = require("./middleware/auth");
 const knex = require("./config/pg");
 const Message = require("./models/Message");
@@ -90,6 +91,7 @@ app.use("/api", postRoutes);
 app.use("/api/tradebits", tradebitsRoutes);
 app.use("/api", utilitiesRoutes);
 app.use("/api", credixRoutes);
+app.use("/api", vendorRoutes);
 
 // webhook route
 app.use("/api", webhookRoute);
@@ -129,7 +131,9 @@ io.on("connection", (socket) => {
 
       const msg = await Message.create({ sender: userId, receiver, content });
 
+      // Deliver to receiver
       io.to(`user_${receiver}`).emit("private_message", msg);
+      // Echo back to sender (for multi-device support)
       socket.emit("private_message", msg);
     } catch (err) {
       console.error("socket message error", err);
