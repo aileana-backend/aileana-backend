@@ -133,8 +133,6 @@ io.on("connection", (socket) => {
 
       // Deliver to receiver
       io.to(`user_${receiver}`).emit("private_message", msg);
-      // Echo back to sender (for multi-device support)
-      socket.emit("private_message", msg);
     } catch (err) {
       console.error("socket message error", err);
       socket.emit("error", { msg: "Message sending failed" });
