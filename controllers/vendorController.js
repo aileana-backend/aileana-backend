@@ -1,7 +1,7 @@
 const knex = require("../config/pg");
 const smileClient = require("../config/smile-client");
 const { uploadBufferToCloudinary } = require("../helpers/cloudUpload");
-const { v4: uuidv4 } = require("uuid");
+const { randomUUID: uuidv4 } = require("crypto");
 
 const STATUS_FIELDS = [
   "id",
