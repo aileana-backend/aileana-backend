@@ -21,6 +21,7 @@ const utilitiesRoutes = require("./routes/utilities");
 const credixRoutes = require("./routes/credix");
 const { verifySocketToken } = require("./middleware/auth");
 const knex = require("./config/pg");
+const Message = require("./models/Message");
 
 const app = express();
 const server = http.createServer(app);
@@ -126,9 +127,7 @@ io.on("connection", (socket) => {
         return socket.emit("error", { msg: "Recipient and content required" });
       }
 
-      const [msg] = await knex("messages")
-        .insert({ sender_id: userId, receiver_id: receiver, content, is_read: false })
-        .returning("*");
+      const msg = await Message.create({ sender: userId, receiver, content });
 
       io.to(`user_${receiver}`).emit("private_message", msg);
       socket.emit("private_message", msg);
@@ -140,7 +139,7 @@ io.on("connection", (socket) => {
 
   socket.on("message_read", async (messageId) => {
     try {
-      await knex("messages").where({ id: messageId }).update({ is_read: true });
+      await Message.findByIdAndUpdate(messageId, { read: true });
     } catch (err) {
       console.error("seen update error", err);
     }

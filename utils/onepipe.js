@@ -46,7 +46,7 @@ async function onepipeTransact(payload) {
     "Content-Type": "application/json",
     "App-Code": ONEPIPE_APP_CODE,
     "Api-Key": ONEPIPE_API_KEY,
-    Signature: generateSignature(payload.request_ref),
+    Signature: Signature(payload.request_ref),
   };
 
   const { data } = await axios.post(

@@ -1,22 +1,18 @@
 const mongoose = require("mongoose");
 const MessageSchema = new mongoose.Schema(
   {
+    // Store PostgreSQL UUIDs as strings
     sender: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      type: String,
       required: true,
     },
     receiver: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      type: String,
       required: true,
     },
     content: {
       type: String,
       required: true,
-
-      // set: (msg) => (msg ? encrypt(msg) : msg),
-      // get: (msg) => (msg ? decrypt(msg) : msg),
     },
     read: {
       type: Boolean,
