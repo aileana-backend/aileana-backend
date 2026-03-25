@@ -8,10 +8,10 @@ const getChatHistory = async (req, res) => {
 
     const messages = await Message.find({
       $or: [
-        { sender: userId, receiver: otherUserId },
-        { sender: otherUserId, receiver: userId },
+        { sender_id: userId, receiver_id: otherUserId },
+        { sender_id: otherUserId, receiver_id: userId },
       ],
-    }).sort({ createdAt: 1 });
+    }).sort({ created_at: 1 });
 
     res.json({ messages });
   } catch (err) {
@@ -28,13 +28,13 @@ const getConversations = async (req, res) => {
     const conversations = await Message.aggregate([
       {
         $match: {
-          $or: [{ sender: userId }, { receiver: userId }],
+          $or: [{ sender_id: userId }, { receiver_id: userId }],
         },
       },
       {
         $addFields: {
           contact_id: {
-            $cond: [{ $eq: ["$sender", userId] }, "$receiver", "$sender"],
+            $cond: [{ $eq: ["$sender_id", userId] }, "$receiver_id", "$sender_id"],
           },
         },
       },
@@ -46,7 +46,7 @@ const getConversations = async (req, res) => {
           unread_count: {
             $sum: {
               $cond: [
-                { $and: [{ $eq: ["$receiver", userId] }, { $eq: ["$read", false] }] },
+                { $and: [{ $eq: ["$receiver_id", userId] }, { $eq: ["$is_read", false] }] },
                 1,
                 0,
               ],
@@ -70,8 +70,8 @@ const getConversations = async (req, res) => {
       contact: contactMap[c._id] || { id: c._id },
       last_message_content: c.last_message.content,
       last_message_at: c.last_message.createdAt,
-      sender_id: c.last_message.sender,
-      receiver_id: c.last_message.receiver,
+      sender_id: c.last_message.sender_id,
+      receiver_id: c.last_message.receiver_id,
       unread_count: c.unread_count,
     }));
 
@@ -101,10 +101,10 @@ const getUsersChatHistoryForAi = async (req, res) => {
 
     const messages = await Message.find({
       $or: [
-        { sender: user1, receiver: user2 },
-        { sender: user2, receiver: user1 },
+        { sender_id: user1, receiver_id: user2 },
+        { sender_id: user2, receiver_id: user1 },
       ],
-    }).sort({ createdAt: 1 });
+    }).sort({ created_at: 1 });
 
     return res.status(200).json({ success: true, data: messages });
   } catch (err) {

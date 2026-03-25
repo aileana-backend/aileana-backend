@@ -123,16 +123,16 @@ io.on("connection", (socket) => {
 
   socket.on("private_message", async (data) => {
     try {
-      const { receiver, content } = data;
+      const { receiver_id, content } = data;
 
-      if (!receiver || !content) {
+      if (!receiver_id || !content) {
         return socket.emit("error", { msg: "Recipient and content required" });
       }
 
-      const msg = await Message.create({ sender: userId, receiver, content });
+      const msg = await Message.create({ sender_id: userId, receiver_id, content });
 
       // Deliver to receiver
-      io.to(`user_${receiver}`).emit("private_message", msg);
+      io.to(`user_${receiver_id}`).emit("private_message", msg);
     } catch (err) {
       console.error("socket message error", err);
       socket.emit("error", { msg: "Message sending failed" });
@@ -141,7 +141,7 @@ io.on("connection", (socket) => {
 
   socket.on("message_read", async (messageId) => {
     try {
-      await Message.findByIdAndUpdate(messageId, { read: true });
+      await Message.findByIdAndUpdate(messageId, { is_read: true });
     } catch (err) {
       console.error("seen update error", err);
     }

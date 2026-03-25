@@ -2,11 +2,11 @@ const mongoose = require("mongoose");
 const MessageSchema = new mongoose.Schema(
   {
     // Store PostgreSQL UUIDs as strings
-    sender: {
+    sender_id: {
       type: String,
       required: true,
     },
-    receiver: {
+    receiver_id: {
       type: String,
       required: true,
     },
@@ -14,13 +14,13 @@ const MessageSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    read: {
+    is_read: {
       type: Boolean,
       default: false,
     },
   },
   {
-    timestamps: true,
+    timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
     toJSON: { getters: true },
     toObject: { getters: true },
   }
