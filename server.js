@@ -20,6 +20,7 @@ const webhookRoute = require("./routes/webhook");
 const utilitiesRoutes = require("./routes/utilities");
 const credixRoutes = require("./routes/credix");
 const vendorRoutes = require("./routes/vendor");
+const creatorRoutes = require("./routes/creator");
 const { verifySocketToken } = require("./middleware/auth");
 const knex = require("./config/pg");
 const Message = require("./models/Message");
@@ -92,6 +93,7 @@ app.use("/api/tradebits", tradebitsRoutes);
 app.use("/api", utilitiesRoutes);
 app.use("/api", credixRoutes);
 app.use("/api", vendorRoutes);
+app.use("/api", creatorRoutes);
 
 // webhook route
 app.use("/api", webhookRoute);

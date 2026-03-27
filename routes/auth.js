@@ -35,14 +35,18 @@ const {
 const { auth } = require("../middleware/auth");
 
 router.get("/user", auth, getUser);
-router.post("/signup", signupRules, validate, signup);
+router.post("/signup", signupRules, validate, generalAuthLimiter, signup);
 router.post("/login", loginRules, validate, loginLimiter, login);
 
 router.post("/check-username", checkUsernameAvailability);
 router.post("/check-email", checkEmailAvailability);
 router.post("/bio-login", biometricLogin);
-router.post("/request-forgot-password", forgotPassword);
-router.post("/verify-forgot-password-otp", verifyForgetPasswordOtp);
+router.post("/request-forgot-password", generalAuthLimiter, forgotPassword);
+router.post(
+  "/verify-forgot-password-otp",
+  generalAuthLimiter,
+  verifyForgetPasswordOtp,
+);
 router.post("/reset-forgot-password", resetForgotPassword);
 //router.put("/profile", auth, updateUserProfile);
 // router.post("/forgot-password", forgotPassword);
@@ -51,8 +55,8 @@ router.put("/profile", auth, updateProfile);
 router.post("/change-password", auth, changePassword);
 router.post("/change-password-request", auth, requestChangePassword);
 router.post("/change-password-verify", auth, verifyChangePassword);
-router.post("/verify-otp", verifyAccountOtp);
-router.post("/resend-otp", resendAccountOtp);
+router.post("/verify-otp", generalAuthLimiter, verifyAccountOtp);
+router.post("/resend-otp", generalAuthLimiter, resendAccountOtp);
 router.post("/suggest-usernames", suggestUsernames);
 
 router.get("/online", auth, getOnlineUsers);
