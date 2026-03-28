@@ -21,6 +21,15 @@ const {
   smileCallback,
 } = require("../controllers/creatorController");
 
+const {
+  getDashboard,
+  getEarnings,
+  getTransactions,
+  getBeneficiaries,
+  withdraw,
+  getWithdrawals,
+} = require("../controllers/creatorDashboardController");
+
 // Step 1: Select content categories
 router.post("/creator/category", auth, submitContentCategory);
 
@@ -50,5 +59,17 @@ router.get("/creator/status", auth, getVerificationStatus);
 
 // Smile Identity webhook (no auth)
 router.post("/creator/smile-callback", smileCallback);
+
+// ─── Creator Dashboard ────────────────────────────────────────────────────────
+router.get("/creator/dashboard", auth, getDashboard);
+router.get("/creator/earnings", auth, getEarnings);
+router.get("/creator/transactions", auth, getTransactions);
+
+// Beneficiaries (past payout accounts)
+router.get("/creator/beneficiaries", auth, getBeneficiaries);
+
+// Withdrawals
+router.post("/creator/withdraw", auth, withdraw);
+router.get("/creator/withdrawals", auth, getWithdrawals);
 
 module.exports = router;
