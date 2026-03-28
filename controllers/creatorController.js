@@ -59,7 +59,7 @@ const submitContentCategory = async (req, res) => {
 
     const data = {
       user_id: req.user.id,
-      content_categories: JSON.stringify(content_categories),
+      content_categories,
       category_submitted: true,
       updated_at: new Date(),
     };
@@ -90,7 +90,7 @@ const submitContentCategory = async (req, res) => {
 // ─── Step 2: Upload identity document (front required, back optional) ─────────
 const uploadDocument = async (req, res) => {
   try {
-    const { document_type } = req.body;
+    const document_type = req.body.document_type?.trim();
 
     const validTypes = ["national_id", "passport", "drivers_license"];
     if (!document_type || !validTypes.includes(document_type)) {
@@ -127,7 +127,7 @@ const uploadDocument = async (req, res) => {
       frontFile.buffer,
       `creator_kyc/${req.user.id}/front_${uuidv4()}`,
       "image",
-      "creator_kyc"
+      "creator_kyc",
     );
 
     let back_image_url = null;
@@ -137,7 +137,7 @@ const uploadDocument = async (req, res) => {
         backFile.buffer,
         `creator_kyc/${req.user.id}/back_${uuidv4()}`,
         "image",
-        "creator_kyc"
+        "creator_kyc",
       );
       back_image_url = backResult.secure_url;
     }
@@ -195,7 +195,7 @@ const submitSelfie = async (req, res) => {
       selfieFile.buffer,
       `creator_kyc/${req.user.id}/selfie_${uuidv4()}`,
       "image",
-      "creator_kyc"
+      "creator_kyc",
     );
 
     const jobId = uuidv4();

@@ -2,6 +2,15 @@ const express = require("express");
 const router = express.Router();
 const { auth } = require("../middleware/auth");
 const upload = require("../middleware/upload");
+const multer = require("multer");
+
+const handleMulterError = (err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    console.error("MulterError on", req.originalUrl, err.message);
+    return res.status(400).json({ success: false, msg: err.message });
+  }
+  next(err);
+};
 const {
   submitBasicInfo,
   uploadDocument,
@@ -25,11 +34,12 @@ router.post(
     { name: "front", maxCount: 1 },
     { name: "back", maxCount: 1 },
   ]),
+  handleMulterError,
   uploadDocument
 );
 
 // Step 3: Selfie + trigger Smile Identity
-router.post("/vendor/submit-selfie", auth, upload.single("selfie"), submitSelfie);
+router.post("/vendor/submit-selfie", auth, upload.single("selfie"), handleMulterError, submitSelfie);
 
 // Step 4: Business / shop details
 router.post("/vendor/business-details", auth, submitBusinessDetails);

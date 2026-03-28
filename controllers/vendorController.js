@@ -101,7 +101,7 @@ const submitBasicInfo = async (req, res) => {
 // ─── Step 2: Upload document images (front required, back optional) ──────────
 const uploadDocument = async (req, res) => {
   try {
-    const { document_type } = req.body;
+    const document_type = req.body.document_type?.trim();
 
     const validTypes = ["national_id", "passport", "drivers_license"];
     if (!document_type || !validTypes.includes(document_type)) {
@@ -174,6 +174,7 @@ const uploadDocument = async (req, res) => {
 // ─── Step 3: Selfie + Smile Identity submission ──────────────────────────────
 const submitSelfie = async (req, res) => {
   try {
+    console.log("submitSelfie called for user", req.user.id);
     const verification = await knex("vendor_verifications")
       .where({ user_id: req.user.id })
       .first();
