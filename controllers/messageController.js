@@ -61,7 +61,7 @@ const getConversations = async (req, res) => {
     const contactIds = conversations.map((c) => c._id);
     const contacts = await knex("users")
       .whereIn("id", contactIds)
-      .select("id", "first_name", "last_name", "username", "email", "profile_picture");
+      .select("id", "first_name", "last_name", "username", "email", "is_online", "last_seen");
 
     const contactMap = {};
     contacts.forEach((u) => (contactMap[u.id] = u));
