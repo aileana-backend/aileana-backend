@@ -129,12 +129,14 @@ io.on("connection", (socket) => {
   socket.on("private_message", async (data) => {
     try {
       const { receiver_id, content } = data;
+      console.log("private_message received:", { sender_id: userId, receiver_id, content });
 
       if (!receiver_id || !content) {
         return socket.emit("error", { msg: "Recipient and content required" });
       }
 
       const msg = await Message.create({ sender_id: String(userId), receiver_id: String(receiver_id), content });
+      console.log("Message saved to DB:", msg._id);
 
       // Deliver to receiver
       io.to(`user_${receiver_id}`).emit("private_message", msg);
