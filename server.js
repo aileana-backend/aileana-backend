@@ -119,7 +119,6 @@ io.use(async (socket, next) => {
 });
 
 io.on("connection", (socket) => {
-  console.log("socket user", socket);
   const userId = socket.userId;
   console.log("Socket connected", userId);
 
