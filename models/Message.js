@@ -1,23 +1,62 @@
 const mongoose = require("mongoose");
+
 const MessageSchema = new mongoose.Schema(
   {
-    // Store PostgreSQL UUIDs as strings
-    sender_id: {
+    sender_id: { type: String, required: true },
+    receiver_id: { type: String, required: true },
+
+    // text | file | image | video | audio | location | contact | task | cart | payment
+    message_type: {
       type: String,
-      required: true,
+      enum: ["text", "file", "image", "video", "audio", "location", "contact", "task", "cart", "payment"],
+      default: "text",
     },
-    receiver_id: {
-      type: String,
-      required: true,
+
+    // Plain text content (required for text messages, optional caption for others)
+    content: { type: String, default: "" },
+
+    // Attachment payload — shape depends on message_type
+    attachment: {
+      // file | image | video | audio
+      url:       { type: String },
+      name:      { type: String },
+      size:      { type: Number },
+      mime_type: { type: String },
+
+      // location
+      latitude:  { type: Number },
+      longitude: { type: Number },
+      address:   { type: String },
+
+      // contact
+      contact_user_id: { type: String },
+      contact_name:    { type: String },
+      contact_username:{ type: String },
+      contact_phone:   { type: String },
+
+      // task
+      task_title: { type: String },
+      task_items: [{ text: String, done: { type: Boolean, default: false } }],
+
+      // cart — array of vendor product snapshots
+      cart_items: [
+        {
+          product_id: String,
+          name:       String,
+          price:      Number,
+          image_url:  String,
+        },
+      ],
+
+      // payment
+      amount:           { type: Number },
+      currency:         { type: String, default: "NGN" },
+      payment_note:     { type: String },
+      payment_status:   { type: String, enum: ["pending", "paid", "declined"], default: "pending" },
+      payment_reference:{ type: String },
     },
-    content: {
-      type: String,
-      required: true,
-    },
-    is_read: {
-      type: Boolean,
-      default: false,
-    },
+
+    is_read: { type: Boolean, default: false },
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
