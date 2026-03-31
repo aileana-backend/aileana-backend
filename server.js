@@ -119,6 +119,7 @@ io.use(async (socket, next) => {
 });
 
 io.on("connection", (socket) => {
+  console.log("socket user", socket);
   const userId = socket.userId;
   console.log("Socket connected", userId);
 
@@ -133,7 +134,7 @@ io.on("connection", (socket) => {
         return socket.emit("error", { msg: "Recipient and content required" });
       }
 
-      const msg = await Message.create({ sender_id: userId, receiver_id, content });
+      const msg = await Message.create({ sender_id: String(userId), receiver_id: String(receiver_id), content });
 
       // Deliver to receiver
       io.to(`user_${receiver_id}`).emit("private_message", msg);
